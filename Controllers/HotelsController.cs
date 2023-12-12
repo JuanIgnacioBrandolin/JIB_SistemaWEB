@@ -97,6 +97,12 @@ namespace sistemaWEB.Controllers
                 return NotFound();
             }
 
+            Hotel hotelAModificar = _context.hoteles.FirstOrDefault(hotel => hotel.id == id);
+            if (hotel.capacidad > hotelAModificar.capacidad)
+            {
+               // return "fallo";
+            }
+
             if (ModelState.IsValid)
             {
                 try
@@ -152,10 +158,17 @@ namespace sistemaWEB.Controllers
             var hotel = await _context.hoteles.FindAsync(id);
             if (hotel != null)
             {
-                _context.hoteles.Remove(hotel);
+                this.eliminarHotel(id);
+                //if (agencia.eliminarHotel(id))
+                // {
+                //     MessageBox.Show("Hotel eliminado exitosamente");
+                // }
+                // else
+                // {
+                //     MessageBox.Show("Hubo un problema al eliminar el Hotel");
+                // }
             }
-            
-            await _context.SaveChangesAsync();
+
             return RedirectToAction(nameof(Index));
         }
 
@@ -163,5 +176,41 @@ namespace sistemaWEB.Controllers
         {
           return (_context.hoteles?.Any(e => e.id == id)).GetValueOrDefault();
         }
+
+
+        #region hotels metodos privados
+
+        public bool eliminarHotel(int idHotel)
+        {
+
+            try
+            {
+                var hotelAEliminar = _context.hoteles.FirstOrDefault(hotel => hotel.id == idHotel);
+                DateTime fechaActual = DateTime.Now;
+                if (hotelAEliminar != null)
+                {
+                    double monto = 0;
+                    foreach (var reservaHotel in hotelAEliminar.listMisReservas.Where(u => u.fechaDesde > fechaActual))
+                    {
+                        reservaHotel.miUsuario.credito += reservaHotel.pagado;
+                        _context.reservaHoteles.Remove(reservaHotel);
+                        _context.usuarios.Update(reservaHotel.miUsuario);
+                    }
+
+                    _context.hoteles.Remove(hotelAEliminar);
+                    _context.SaveChangesAsync();
+                    return true;
+                }
+                return false; //no se encontró el id del hotel
+            }
+            catch (Exception)
+            {
+                return false; //excepcion al eliminar el hotel
+            }
+        }
+
+        #endregion
+
+
     }
 }

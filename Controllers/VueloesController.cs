@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using sistemaWEB.Models;
 
 namespace sistemaWEB.Controllers
@@ -62,6 +63,26 @@ namespace sistemaWEB.Controllers
         {
             if (ModelState.IsValid)
             {
+                int capacidad;
+                if (!int.TryParse(Convert.ToString(vuelo.capacidad), out capacidad))
+                {
+                    //MessageBox.Show("La capacidad debe ser un número válido");
+                }
+
+                double costo;
+                if (!double.TryParse(Convert.ToString(vuelo.costo), out costo))
+                {
+                  //  MessageBox.Show("El costo debe ser un número válido");
+
+                }
+
+                DateTime fecha;
+                if (!DateTime.TryParse(Convert.ToString(vuelo.fecha), out fecha))
+                {
+                   // MessageBox.Show("Debe elegir una fecha");
+           
+                }
+
                 _context.Add(vuelo);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
@@ -105,8 +126,19 @@ namespace sistemaWEB.Controllers
             {
                 try
                 {
-                    _context.Update(vuelo);
-                    await _context.SaveChangesAsync();
+                    string resultado = (this.modificarVuelo(id, vuelo.origen, vuelo.destino, vuelo.capacidad, vuelo.costo, vuelo.fecha, vuelo.aerolinea, vuelo.avion));
+                    switch (resultado)
+                    {
+                        case "exito":
+                          //  MessageBox.Show("Vuelo modificado exitosamente");
+                            break;
+                        case "capacidad":
+                          //  MessageBox.Show("La capacidad es menor a la cantidad de personas que reservaron el vuelo");
+                            break;
+                        case "error":
+                         //   MessageBox.Show("Ocurrió un problema al querer modificar el vuelo");
+                            break;
+                    }
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -169,5 +201,54 @@ namespace sistemaWEB.Controllers
         {
           return (_context.vuelos?.Any(e => e.id == id)).GetValueOrDefault();
         }
+
+
+        #region funciones vuelos
+
+        public string modificarVuelo(int id, Ciudad cOrigen, Ciudad cDestino, int capacidad, double costo, DateTime fecha, string aerolinea, string avion)
+        {
+            try
+            {
+                Vuelo vueloModificado = _context.vuelos.Where(v => v.id == id).FirstOrDefault();
+
+                if (vueloModificado != null)
+                {
+                    int disponibilidad = vueloModificado.capacidad - vueloModificado.vendido;
+                    if (capacidad >= disponibilidad)
+                    {
+                        vueloModificado.origen = cOrigen;
+                        vueloModificado.destino = cDestino;
+                        vueloModificado.costo = costo;
+                        vueloModificado.fecha = fecha;
+                        vueloModificado.aerolinea = aerolinea;
+                        vueloModificado.avion = avion;
+                        vueloModificado.capacidad = capacidad;
+                        _context.vuelos.Update(vueloModificado);
+                        _context.SaveChangesAsync();
+                        return "exito";
+                    }
+                    {
+                        return "capacidad";
+                    }
+                }
+
+            }
+            catch (Exception e)
+            {
+                return "error";
+            }
+
+            return "error";
+        }
+
+        public int obtenerNombreCiudad(string nombre)
+        {
+            Ciudad ciudad = _context.ciudades.FirstOrDefault(ciudad => ciudad.nombre == nombre);
+            return ciudad != null ? ciudad.id : -1;
+        }
+
+        #endregion
+
+
     }
 }

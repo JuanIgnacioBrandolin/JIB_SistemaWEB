@@ -21,9 +21,9 @@ namespace sistemaWEB.Controllers
         // GET: Ciudads
         public async Task<IActionResult> Index()
         {
-              return _context.ciudades != null ? 
-                          View(await _context.ciudades.ToListAsync()) :
-                          Problem("Entity set 'MiContexto.ciudades'  is null.");
+            return _context.ciudades != null ?
+                        View(await _context.ciudades.ToListAsync()) :
+                        Problem("Entity set 'MiContexto.ciudades'  is null.");
         }
 
         // GET: Ciudads/Details/5
@@ -147,16 +147,54 @@ namespace sistemaWEB.Controllers
             var ciudad = await _context.ciudades.FindAsync(id);
             if (ciudad != null)
             {
-                _context.ciudades.Remove(ciudad);
+                if (this.eliminarCiudad(Convert.ToInt32(id)))
+                {
+                    // MessageBox.Show("Eliminado con éxito");
+                }
             }
-            
-            await _context.SaveChangesAsync();
+            //  else
+            //MessageBox.Show("Problemas al eliminar. La ciudad tiene asociado un vuelo y/o un hotel");
+
             return RedirectToAction(nameof(Index));
         }
 
         private bool CiudadExists(int id)
         {
-          return (_context.ciudades?.Any(e => e.id == id)).GetValueOrDefault();
+            return (_context.ciudades?.Any(e => e.id == id)).GetValueOrDefault();
         }
+
+
+        #region ciudad
+
+        public bool eliminarCiudad(int id)
+        {
+            try
+            {
+                Ciudad ciudadAEliminar = _context.ciudades.Where(c => c.id == id).FirstOrDefault();
+                if (ciudadAEliminar.listHoteles.Count() > 0 || ciudadAEliminar.listVuelosDestino.Count() > 0 || ciudadAEliminar.listVuelosOrigen.Count() > 0)
+                {
+                    return false;
+                }
+                else
+                {
+                    if (ciudadAEliminar != null)
+                    {
+                        _context.ciudades.Remove(ciudadAEliminar);
+                        _context.SaveChangesAsync();
+                        return true;
+
+                    }
+                    return false;
+                }
+            }
+            catch (Exception e)
+            {
+                return false;
+            }
+        }
+
+        #endregion
+
+
     }
 }

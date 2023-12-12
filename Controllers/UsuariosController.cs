@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using sistemaWEB.Models;
 
 namespace sistemaWEB.Controllers
@@ -107,9 +108,30 @@ namespace sistemaWEB.Controllers
         {
             if (ModelState.IsValid)
             {
-                _context.Add(usuario);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+
+                if ((this.existeUsuarioConDniOMail(usuario.dni, usuario.mail)))
+                {
+                    //   MessageBox.Show("ya existe un usuario con el mismo mail o dni.");
+                    //true
+                }
+                else
+                {
+                    if (usuario.name.Length >= 3 && usuario.apellido.Length >= 3 && usuario.dni.Length == 8 && usuario.mail.Contains("@"))
+                    {
+                        //Dni, Nombre, apellido, Mail,pass, EsADM, Bloqueado);
+                        await this.agregarUsuarioContextoAsync(usuario.dni, usuario.name, usuario.apellido, usuario.mail, usuario.password, usuario.esAdmin, usuario.bloqueado);
+
+                        //  MessageBox.Show("Agregado con éxito");
+                        return RedirectToAction(nameof(Index));
+                    }
+                    else
+                    {
+                        // MessageBox.Show("Problemas al agregar");
+                    }
+                }
+
+                //_context.Add(usuario);
+                //await _context.SaveChangesAsync();
             }
             return View(usuario);
         }
@@ -139,6 +161,7 @@ namespace sistemaWEB.Controllers
         {
             if (id != usuario.id)
             {
+                //  MessageBox.Show("Debe seleccionar un usuario y no puede haber datos incompletos");
                 return NotFound();
             }
 
@@ -146,8 +169,25 @@ namespace sistemaWEB.Controllers
             {
                 try
                 {
-                    _context.Update(usuario);
-                    await _context.SaveChangesAsync();
+                    if (!string.IsNullOrEmpty(usuario.name) && !string.IsNullOrEmpty(usuario.apellido) &&
+                    !string.IsNullOrEmpty(usuario.dni) && !string.IsNullOrEmpty(usuario.mail))
+                    {
+
+                        //Dni, Nombre, apellido, Mail,pass, EsADM, Bloqueado);
+                        // int Id, string Nombre, string Apellido, string Dni, string Mail
+                        if (this.modificarUsuariocontexto(id, usuario.name, usuario.apellido, usuario.dni, usuario.mail, usuario.password, usuario.esAdmin, usuario.bloqueado))
+                        {
+                            // MessageBox.Show("Modificado con éxito");
+                        }
+                        else
+                        {
+                            // MessageBox.Show("Problemas al modificar");
+                        }
+                    }
+                    else
+                    {
+                        // MessageBox.Show("no pueden haber datos incompletos");
+                    }
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -190,15 +230,18 @@ namespace sistemaWEB.Controllers
         {
             if (_context.usuarios == null)
             {
+               //MessageBox.Show("Debe seleccionar un usuario");
                 return Problem("Entity set 'MiContexto.usuarios'  is null.");
             }
             var usuario = await _context.usuarios.FindAsync(id);
             if (usuario != null)
             {
-                _context.usuarios.Remove(usuario);
+                this.eliminarUsuarioContext(id);
+                //if (this.eliminarUsuarioContext(id))
+                //  MessageBox.Show("Eliminado con éxito");
+                //  else
+                //  MessageBox.Show("Problemas al eliminar");
             }
-
-            await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
 
@@ -309,6 +352,107 @@ namespace sistemaWEB.Controllers
 
         #endregion
 
+        #region usuario
 
+        //verificar si ya existe un usuario con ese mail o dni
+        //devuelve true si encuentra
+        public bool existeUsuarioConDniOMail(string dni, string mail)
+        {
+            return _context.usuarios.Any(u => u.dni == dni || u.mail == mail);
+        }
+
+        public async Task<bool> agregarUsuarioContextoAsync(string Dni, string Nombre, string apellido, string Mail, string Password, bool EsADM, bool Bloqueado)
+        {
+            //comprobación para que no me agreguen usuarios con DNI duplicado
+            bool esValido = true;
+
+            List<Usuario> listUsuarios = _context.usuarios.ToList();
+
+            foreach (Usuario u in listUsuarios)
+            {
+                if (u.dni == Dni)
+                {
+                    esValido = false;
+                }
+            }
+            try
+            {
+                if (esValido)
+                {
+                    Usuario nuevo = new Usuario { dni = Dni, name = Nombre, apellido = apellido, mail = Mail, password = Password, esAdmin = EsADM, bloqueado = Bloqueado };
+                    _context.Add(nuevo);
+                    await _context.SaveChangesAsync();
+                    return true;
+                }
+                else
+                    return false;
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+        }
+        public bool modificarUsuariocontexto(int Id, string Nombre, string Apellido, string Dni, string Mail, string pass, bool admin, bool bloqueado)
+        {
+            //busco usuario y lo asocio a la variable
+            Usuario u = _context.usuarios.Where(u => u.id == Id).FirstOrDefault();
+            if (u != null)
+            {
+                try
+                {
+                    u.name = Nombre;
+                    u.apellido = Apellido;
+                    u.dni = Dni.ToString();
+                    u.mail = Mail;
+                    u.password = pass;
+                    u.esAdmin = admin;
+                    u.bloqueado = bloqueado;
+                    _context.usuarios.Update(u);
+                    _context.SaveChangesAsync();
+                    return true;
+                }
+                catch (Exception)
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                //algo salió mal con la query porque no generó 1 registro
+                return false;
+            }
+        }
+        public bool eliminarUsuarioContext(int Id)
+        {
+            Usuario u = _context.usuarios.Where(u => u.id == Id).FirstOrDefault();
+            if (u != null)
+            {
+                try
+                {
+                    u.listMisReservasVuelo.Where(rv => rv.idUsuario == Id).ToList();
+                    foreach (ReservaVuelo rv in u.listMisReservasVuelo)
+                    {
+                        int cantReservas = (int)(rv.pagado / rv.miVuelo.costo);
+                        rv.miVuelo.vendido -= cantReservas;
+                        _context.vuelos.Update(rv.miVuelo);
+                    }
+                    _context.usuarios.Remove(u);
+                    _context.SaveChangesAsync();
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    return false;
+                    throw;
+                }
+            }
+            else
+            {
+                //algo salió mal con la query porque no generó 
+                return false;
+            }
+        }
+        #endregion
     }
 }
