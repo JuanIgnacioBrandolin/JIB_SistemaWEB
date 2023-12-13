@@ -187,12 +187,16 @@ namespace sistemaWEB.Controllers
             {
                 return Problem("Entity set 'MiContexto.vuelos'  is null.");
             }
-            var vuelo = await _context.vuelos.FindAsync(id);
-            if (vuelo != null)
+            var vueloAEliminar = await _context.vuelos.FindAsync(id);
+            if (vueloAEliminar != null)
             {
-                _context.vuelos.Remove(vuelo);
+                if (vueloAEliminar.fecha > DateTime.Now)
+                {
+                    vueloAEliminar.listMisReservas.ForEach(r => r.miUsuario.credito += r.pagado);
+                }
+                _context.vuelos.Remove(vueloAEliminar);
             }
-            
+           
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
@@ -246,6 +250,34 @@ namespace sistemaWEB.Controllers
             Ciudad ciudad = _context.ciudades.FirstOrDefault(ciudad => ciudad.nombre == nombre);
             return ciudad != null ? ciudad.id : -1;
         }
+
+        public bool eliminarVuelo(int id)
+        {
+            DateTime fechaActual = DateTime.Now;
+            try
+            {
+                bool salida = false;
+                Vuelo vueloAEliminar = _context.vuelos.Where(v => v.id == id).FirstOrDefault();
+                if (vueloAEliminar != null)
+                {
+                    if (vueloAEliminar.fecha > fechaActual)
+                    {
+                        vueloAEliminar.listMisReservas.ForEach(r => r.miUsuario.credito += r.pagado);
+                    }
+                    _context.vuelos.Remove(vueloAEliminar);
+                    salida = true;
+                }
+
+                if (salida)
+                    _context.SaveChanges();
+                return salida;
+            }
+            catch (Exception e)
+            {
+                return false;
+            }
+        }
+
 
         #endregion
 
