@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,6 +17,7 @@ namespace sistemaWEB.Controllers
         public HotelsController(MiContexto context)
         {
             _context = context;
+            _context.hoteles.Include(x => x.ubicacion).Load();
         }
 
         // GET: Hotels
@@ -23,6 +25,13 @@ namespace sistemaWEB.Controllers
         {
             var miContexto = _context.hoteles.Include(h => h.ubicacion);
             return View(await miContexto.ToListAsync());
+        }
+
+        public IActionResult MisHotelesQueVisite()
+        {
+            var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+            IEnumerable misHoteles = this.misHotelesQueVisiteContext(usuarioActual.id);
+            return View(misHoteles);
         }
 
         // GET: Hotels/Details/5
@@ -100,7 +109,7 @@ namespace sistemaWEB.Controllers
             Hotel hotelAModificar = _context.hoteles.FirstOrDefault(hotel => hotel.id == id);
             if (hotel.capacidad > hotelAModificar.capacidad)
             {
-               // return "fallo";
+                // return "fallo";
             }
 
             if (ModelState.IsValid)
@@ -174,7 +183,7 @@ namespace sistemaWEB.Controllers
 
         private bool HotelExists(int id)
         {
-          return (_context.hoteles?.Any(e => e.id == id)).GetValueOrDefault();
+            return (_context.hoteles?.Any(e => e.id == id)).GetValueOrDefault();
         }
 
 
@@ -206,6 +215,22 @@ namespace sistemaWEB.Controllers
             catch (Exception)
             {
                 return false; //excepcion al eliminar el hotel
+            }
+        }
+
+        public List<Hotel>? misHotelesQueVisiteContext(Int32 idUsuario)
+        {
+            try
+            {
+                var listHoteles = from hu in _context.HotelUsuario
+                                  join h in _context.hoteles on hu.idHotel equals h.id
+                                  where hu.idUsuario == idUsuario
+                                  select new { h }.h;
+                return listHoteles.ToList();
+            }
+            catch (Exception)
+            {
+                throw;
             }
         }
 

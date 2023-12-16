@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using sistemaWEB.Models;
+using sistemaWEB.Models.Business.ReservaHotel;
+using sistemaWEB.Models.Business.ReservaVuelo;
 
 namespace sistemaWEB.Controllers
 {
@@ -16,7 +18,26 @@ namespace sistemaWEB.Controllers
         public ReservaVueloesController(MiContexto context)
         {
             _context = context;
+            _context.reservaHoteles.Load();
+            _context.vuelos.Include(v => v.listPasajeros).Include(v => v.listMisReservas).Include(v => v.vueloUsuarios).Include(o => o.origen).Load();
         }
+
+        // GET: ReservaVueloes
+        public async Task<IActionResult> MisReservasVuelo()
+        {
+            var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+            usuarioActual.listMisReservasVuelo = new List<ReservaVuelo>();
+            var listMiReservaVuelo = from rv in _context.reservaVuelos
+                              join u in _context.usuarios on rv.idUsuario equals u.id
+                              where rv.idUsuario == usuarioActual.id
+                              select new { rv }.rv;
+            listMiReservaVuelo.ToList();
+            usuarioActual.listMisReservasVuelo = listMiReservaVuelo.ToList();
+            return View(usuarioActual.listMisReservasVuelo);
+        }
+
+
+
 
         // GET: ReservaVueloes
         public async Task<IActionResult> Index()
@@ -45,12 +66,91 @@ namespace sistemaWEB.Controllers
             return View(reservaVuelo);
         }
 
-        // GET: ReservaVueloes/Create
-        public IActionResult Create()
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult CreateConsulta([Bind("cantPasajeros,CiudadOrigen,CiudadDestino, fecha")] BusinessReservaVuelo reservaVuelo)
         {
-            ViewData["idUsuario"] = new SelectList(_context.usuarios, "id", "dni");
-            ViewData["idVuelo"] = new SelectList(_context.vuelos, "id", "aerolinea");
-            return View();
+            return RedirectToAction(nameof(Create), "ReservaVueloes", new RouteValueDictionary(reservaVuelo));
+        }
+
+
+        // GET: ReservaVueloes/Create
+        public IActionResult Create(BusinessReservaVuelo reservaVuelo)
+        {
+
+
+            Ciudad ciudadOrigen = _context.ciudades.FirstOrDefault(ciudad => ciudad.id == reservaVuelo.CiudadOrigen);
+            Ciudad ciudadDestino = _context.ciudades.FirstOrDefault(ciudad => ciudad.id == reservaVuelo.CiudadDestino);
+
+            if (ciudadOrigen != null && ciudadDestino != null && reservaVuelo.fecha != null && reservaVuelo.cantPasajeros != null)
+            {
+                List<Vuelo> vuelosEncontrados = this.buscarVuelos(ciudadOrigen, ciudadDestino, reservaVuelo.fecha, reservaVuelo.cantPasajeros);
+
+                if (vuelosEncontrados.Count >= 1)
+                {
+                    reservaVuelo.vuelos = new List<BusinessVuelos>();
+                    foreach (var itemVuelo in vuelosEncontrados)
+                    {
+                        double costoTotal = itemVuelo.costo * reservaVuelo.cantPasajeros;
+                        BusinessVuelos vuelos = new BusinessVuelos()
+                        {
+                            id = itemVuelo.id,
+                            aerolinea = itemVuelo.aerolinea,
+                            avion = itemVuelo.avion,
+                            capacidad = itemVuelo.capacidad,
+                            costoTotal = Convert.ToString(costoTotal),
+                            fechaFormateada = itemVuelo.fecha,
+                            vueloDestinoNombre = itemVuelo.destino.nombre,
+                            vueloOrigenNombre = itemVuelo.origen.nombre
+
+                        };
+                        reservaVuelo.vuelos.Add(vuelos);
+                    }
+                }
+            }
+            else
+            {
+                reservaVuelo.vuelos = new List<BusinessVuelos>();
+            }
+            ViewData["CiudadDestino"] = new SelectList(_context.ciudades, "id", "nombre");
+            ViewData["CiudadOrigen"] = new SelectList(_context.ciudades, "id", "nombre");
+            return View(new BusinessReservaVuelo() { vuelos = reservaVuelo.vuelos, fecha = reservaVuelo.fecha == null ? DateTime.Now : reservaVuelo.fecha });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Reservar([Bind("cantPasajeros,CiudadOrigen,CiudadDestino,fecha")] BusinessReservaVuelo BusinessReservaVuelo, [Bind("id,vueloOrigenNombre,vueloDestinoNombre,capacidad,costoTotal,fechaFormateada,aerolinea,avion")] BusinessVuelos BusinessVuelos)
+        {
+
+            var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+            int vueloId = BusinessVuelos.id;
+            int cantidad = BusinessReservaVuelo.cantPasajeros;
+
+            string resultado = this.comprarVuelo(vueloId, usuarioActual, cantidad);
+
+            switch (resultado)
+            {
+                case "yaCompro":
+                    // MessageBox.Show("Ya compraste este vuelo");
+                    break;
+                case "exito":
+                    Vuelo vueloSeleccionado = _context.vuelos.FirstOrDefault(v => v.id == vueloId);
+
+                    // int rowIndex = e.RowIndex;
+                    int asientosDisponibles = vueloSeleccionado.capacidad;
+                    //  dataGridView1.Rows[rowIndex].Cells["Cantidad"].Value = asientosDisponibles -= cantidad;
+                    // MessageBox.Show("Reserva realiza con éxito");
+                    break;
+
+                case "sinSaldo":
+                    //  MessageBox.Show("No tienes suficiente crédito para realizar la compra");
+                    break;
+                case "error":
+                    // MessageBox.Show("Hubo un error inesperado, volvé a intentarlo");
+                    break;
+            }
+
+            return RedirectToAction(nameof(Create), "ReservaHotels", new RouteValueDictionary());
         }
 
         // POST: ReservaVueloes/Create
@@ -83,6 +183,58 @@ namespace sistemaWEB.Controllers
             if (reservaVuelo == null)
             {
                 return NotFound();
+            }
+            ViewData["idUsuario"] = new SelectList(_context.usuarios, "id", "dni", reservaVuelo.idUsuario);
+            ViewData["idVuelo"] = new SelectList(_context.vuelos, "id", "aerolinea", reservaVuelo.idVuelo);
+            return View(reservaVuelo);
+        }
+
+        // GET: ReservaVueloes/Edit/5
+        public async Task<IActionResult> EditMiReservaVuelo(int? id)
+        {
+            if (id == null || _context.reservaVuelos == null)
+            {
+                return NotFound();
+            }
+
+            var reservaVuelo = await _context.reservaVuelos.FindAsync(id);
+            if (reservaVuelo == null)
+            {
+                return NotFound();
+            }
+            ViewData["idUsuario"] = new SelectList(_context.usuarios, "id", "dni", reservaVuelo.idUsuario);
+            ViewData["idVuelo"] = new SelectList(_context.vuelos, "id", "aerolinea", reservaVuelo.idVuelo);
+            return View(reservaVuelo);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditMiReservaVuelo(int id, [Bind("idReservaVuelo")] ReservaVuelo reservaVuelo,int cantidad, int idVuelo)
+        {
+            if (id != reservaVuelo.idReservaVuelo)
+            {
+                return NotFound();
+            }
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    double nuevoCosto = this.CalcularNuevoCosto(idVuelo, cantidad);
+                    string resultado = (this.modificarReservaVuelo(idVuelo, reservaVuelo.idReservaVuelo, cantidad, nuevoCosto));
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    if (!ReservaVueloExists(reservaVuelo.idReservaVuelo))
+                    {
+                        return NotFound();
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+                return RedirectToAction(nameof(EditMiReservaVuelo));
             }
             ViewData["idUsuario"] = new SelectList(_context.usuarios, "id", "dni", reservaVuelo.idUsuario);
             ViewData["idVuelo"] = new SelectList(_context.vuelos, "id", "aerolinea", reservaVuelo.idVuelo);
@@ -160,14 +312,233 @@ namespace sistemaWEB.Controllers
             {
                 _context.reservaVuelos.Remove(reservaVuelo);
             }
-            
+
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
 
         private bool ReservaVueloExists(int id)
         {
-          return (_context.reservaVuelos?.Any(e => e.idReservaVuelo == id)).GetValueOrDefault();
+            return (_context.reservaVuelos?.Any(e => e.idReservaVuelo == id)).GetValueOrDefault();
         }
+
+
+        #region funciones reserva vuelos
+
+
+        public List<Vuelo> buscarVuelos(Ciudad origen, Ciudad destino, DateTime? fecha, int cantidadPax)
+        {
+            // && vuelo.fecha.Date == fecha.Date
+            var vuelosDisponibles = _context.vuelos.Where(vuelo => vuelo.origen.nombre == origen.nombre && vuelo.destino.nombre == destino.nombre && vuelo.capacidad >= cantidadPax + vuelo.vendido).ToList();
+            return vuelosDisponibles;
+        }
+
+
+        public string comprarVuelo(int vueloId, Usuario usuarioActual, int cantidad)
+        {
+            Vuelo vuelo = _context.vuelos.Where(v => v.id == vueloId).FirstOrDefault();
+
+            if (_context.vueloUsuarios.Any(vu => vu.idVuelo == vueloId && vu.idUsuario == usuarioActual.id))
+            {
+                return "yaCompro";
+            }
+
+            if (vuelo != null && cantidad > 0 && cantidad <= vuelo.capacidad - vuelo.vendido)
+            {
+                double costoTotal = vuelo.costo * cantidad;
+                if (usuarioActual.credito >= costoTotal)
+                {
+                    usuarioActual.credito -= costoTotal;
+                    vuelo.vendido += cantidad;
+                    vuelo.listPasajeros.Add(usuarioActual);
+
+                    ReservaVuelo reserva = new ReservaVuelo(vuelo, usuarioActual, costoTotal);
+                    _context.reservaVuelos.Add(reserva);
+
+                    vincularVueloUsuarios(vueloId, usuarioActual.id, cantidad);
+
+                    _context.SaveChanges();
+                    return "exito";
+
+                }
+                return "sinSaldo";
+
+            }
+            return "error";
+
+        }
+
+
+        public bool vincularVueloUsuarios(int vueloId, int usuarioId, int cant)
+        {
+            try
+            {
+                Vuelo vu = _context.vuelos.Where(v => v.id == vueloId).FirstOrDefault();
+                Usuario us = _context.usuarios.Where(u => u.id == usuarioId).FirstOrDefault();
+                VueloUsuario vueloUsuarioSelected = _context.vueloUsuarios.Where(vus => vus.idUsuario == usuarioId && vus.idVuelo == vueloId).FirstOrDefault();
+                if (us != null && vu != null && vueloUsuarioSelected != null)
+                {
+                    us.listVuelosTomados.Add(vu);
+                    _context.usuarios.Update(us);
+                    _context.SaveChanges();
+
+
+                    vueloUsuarioSelected.cantidad = cant;
+                    _context.vueloUsuarios.Update(vueloUsuarioSelected);
+                    _context.SaveChanges();
+
+                }
+                else
+                {
+                    vueloUsuarioSelected = new VueloUsuario();
+                    {
+                        vueloUsuarioSelected.idVuelo = vueloId;
+                        vueloUsuarioSelected.idUsuario = usuarioId;
+                        vueloUsuarioSelected.cantidad = cant;
+                    }
+                    _context.vueloUsuarios.Add(vueloUsuarioSelected);
+                    _context.SaveChanges();
+
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+
+
+        }
+        public double CalcularNuevoCosto(int vueloId, int nuevaCantidad)
+        {
+
+            double costoBase = ObtenerCostoBase(vueloId);
+            double nuevoCosto = costoBase * nuevaCantidad;
+            return nuevoCosto;
+        }
+
+        public double ObtenerCostoBase(int vueloId)
+        {
+            Vuelo vuelo = _context.vuelos.FirstOrDefault(v => v.id == vueloId);
+
+            if (vuelo != null)
+            {
+                return vuelo.costo;
+            }
+            else
+            {
+
+                return 0;
+            }
+        }
+
+
+
+
+
+        public string modificarReservaVuelo(int idVuelo, int idReserva, int cantidad, double costo)
+        {
+            DateTime fechaActual = DateTime.Now;
+            try
+            {
+                ReservaVuelo rv = _context.reservaVuelos.Where(rv => rv.idReservaVuelo == idReserva).FirstOrDefault();
+                Vuelo v = rv.miVuelo;
+                Usuario u = rv.miUsuario;
+                var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+                VueloUsuario vueloUsuarioSelected = _context.vueloUsuarios.Where(vus => vus.idUsuario == usuarioActual.id && vus.idVuelo == idVuelo).FirstOrDefault();
+                if (rv != null)
+                {
+                    if (v.fecha >= fechaActual)
+                    {
+
+                        int cantReservas = vueloUsuarioSelected.cantidad;
+
+                        if (cantidad > cantReservas)
+                        {
+                            //Calculo la diferencia
+                            int diferencia = cantidad - cantReservas;
+
+                            double nuevoMonto = 0;
+                            if (costo != rv.pagado)
+                                nuevoMonto = diferencia * v.costo;
+                            else
+                                nuevoMonto = costo;
+
+                            int disponibilidad = v.capacidad - v.vendido;
+                            if (disponibilidad > diferencia)
+                            {
+
+                                //verifico si tiene credito
+                                if (u.credito > nuevoMonto)
+                                {
+                                    //le cobro la diferencia 
+                                    rv.miUsuario.credito = rv.miUsuario.credito - nuevoMonto;
+                                    //actualizo el valor pagado de la nueva reserva 
+                                    rv.pagado = rv.pagado + nuevoMonto;
+                                    //sumo vendido de la diferencia a vuelo
+                                    v.vendido += diferencia;
+                                    vueloUsuarioSelected.cantidad += diferencia;
+                                    _context.SaveChanges();
+                                    return "reservaModificada";
+                                }
+                                else
+                                {
+                                    return "credito";
+                                    //el usuario no tiene credito suficiente
+                                }
+                            }
+                            else
+                            {
+                                return "capacidad";
+                            }
+                        }
+                        else
+                        {   //si la diferencia es menor
+                            int diferencia = cantReservas - cantidad;
+                            double nuevoMonto = diferencia * v.costo;
+                            if (nuevoMonto > 0)
+                            {
+                                //devuelvo el dinero al usuario
+                                rv.miUsuario.credito = rv.miUsuario.credito + nuevoMonto;
+                                //actualizo el valor pagado en reserva
+                                rv.pagado = rv.pagado - nuevoMonto;
+                                //resto vendido a vuelo
+                                v.vendido -= diferencia;
+                                vueloUsuarioSelected.cantidad -= diferencia;
+                                _context.SaveChanges();
+                                return "reservaModificada";
+                            }
+                            if (nuevoMonto == 0)
+                            {
+                                return "nomodifica";
+                            }
+                            else
+                            {
+                                return "error";
+                            }
+
+                        }
+                    }
+                    else
+                    {
+                        return "fecha";
+                    }
+
+                }
+            }
+            catch (Exception e)
+            {
+                return "error";
+            }
+
+            return "error";
+        }
+
+
+
+        #endregion
+
+
+
     }
 }

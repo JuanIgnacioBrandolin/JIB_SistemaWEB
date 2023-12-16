@@ -16,10 +16,18 @@ namespace sistemaWEB.Controllers
         public CiudadsController(MiContexto context)
         {
             _context = context;
+            _context.ciudades.Include(x => x.listHoteles).Include(c => c.listVuelosDestino).Include(d => d.listVuelosOrigen).Load();
         }
 
         // GET: Ciudads
         public async Task<IActionResult> Index()
+        {
+            return _context.ciudades != null ?
+                        View(await _context.ciudades.ToListAsync()) :
+                        Problem("Entity set 'MiContexto.ciudades'  is null.");
+        }
+
+        public async Task<IActionResult> ReporteCiudades()
         {
             return _context.ciudades != null ?
                         View(await _context.ciudades.ToListAsync()) :
@@ -98,7 +106,10 @@ namespace sistemaWEB.Controllers
             {
                 try
                 {
-                    _context.Update(ciudad);
+
+                    Ciudad ciudadaux =  _context.ciudades.FirstOrDefault(x => x.id == ciudad.id);
+                    ciudadaux.nombre = ciudad.nombre;
+                    _context.Update(ciudadaux);
                     await _context.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException)

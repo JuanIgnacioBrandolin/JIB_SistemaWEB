@@ -1,4 +1,4 @@
-﻿@model sistemaWEB.Models.ReservaVuelo
+﻿@model sistemaWEB.Models.Business.ReservaVuelo.BusinessReservaVuelo
 
 @{
     ViewData["Title"] = "Create";
@@ -10,26 +10,127 @@
 <hr />
 <div class="row">
     <div class="col-md-4">
-        <form asp-action="Create">
+        <form asp-action="CreateConsulta">
+
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
             <div class="form-group">
-                <label asp-for="idVuelo" class="control-label"></label>
-                <select asp-for="idVuelo" class ="form-control" asp-items="ViewBag.idVuelo"></select>
+                <label asp-for="CiudadOrigen" class="control-label"></label>
+                <select asp-for="CiudadOrigen" class="form-control" asp-items="ViewBag.CiudadOrigen"></select>
+                <span asp-validation-for="CiudadOrigen" class="text-danger"></span>
             </div>
+
+
             <div class="form-group">
-                <label asp-for="idUsuario" class="control-label"></label>
-                <select asp-for="idUsuario" class ="form-control" asp-items="ViewBag.idUsuario"></select>
+                <label asp-for="CiudadDestino" class="control-label"></label>
+                <select asp-for="CiudadDestino" class="form-control" asp-items="ViewBag.CiudadDestino"></select>
+                <span asp-validation-for="CiudadDestino" class="text-danger"></span>
             </div>
+
             <div class="form-group">
-                <label asp-for="pagado" class="control-label"></label>
-                <input asp-for="pagado" class="form-control" />
-                <span asp-validation-for="pagado" class="text-danger"></span>
+                <label asp-for="fecha" class="control-label"></label>
+                <input asp-for="fecha" class="form-control" />
+                <span asp-validation-for="fecha" class="text-danger"></span>
             </div>
+
             <div class="form-group">
-                <input type="submit" value="Create" class="btn btn-primary" />
+                <label asp-for="cantPasajeros" class="control-label"></label>
+                <input asp-for="cantPasajeros" class="form-control" />
+                <span asp-validation-for="cantPasajeros" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <input type="submit" value="Buscar" class="btn btn-primary" />
             </div>
         </form>
     </div>
+
+
+    <div class="col-md-8">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>
+                        @Html.DisplayName("id")
+                    </th>
+                    <th>
+                        @Html.DisplayName("Origen")
+                    </th>
+                    <th>
+                        @Html.DisplayName("Destino")
+                    </th>
+                    <th>
+                        @Html.DisplayName("AsientosDisponibles")
+                    </th>
+                    <th>
+                        @Html.DisplayName("Costo")
+                    </th>
+                    <th>
+                        @Html.DisplayName("Fecha")
+                    </th>
+                    <th>
+                        @Html.DisplayName("Aerolinea")
+                    </th>
+                    <th>
+                        @Html.DisplayName("Avion")
+                    </th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.vuelos)
+                {
+                    <tr>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.id)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.vueloOrigenNombre)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.vueloDestinoNombre)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.capacidad)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.costoTotal)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.fechaFormateada)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.aerolinea)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.avion)
+                        </td>
+                        <td>
+                            <form asp-action="Reservar">
+                                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                                <input hidden name="id" class="form-control" value="@item.id" />
+                                <input hidden name="vueloOrigenNombre" class="form-control" value="@item.vueloOrigenNombre" />
+                                <input hidden name="vueloDestinoNombre" class="form-control" value="@item.vueloDestinoNombre" />
+                                <input hidden name="capacidad" class="form-control" value="@item.capacidad" />
+                                <input hidden name="costoTotal" class="form-control" value="@item.costoTotal" />
+                                <input hidden name="fechaFormateada" class="form-control" value="@item.fechaFormateada" />
+                                <input hidden name="aerolinea" class="form-control" value="@item.aerolinea" />
+                                <input hidden name="avion" class="form-control" value="@item.avion" />
+                                <input hidden asp-for="CiudadOrigen" class="form-control" asp-items="ViewBag.CiudadOrigen"/>
+                                <input hidden asp-for="CiudadDestino" class="form-control" asp-items="ViewBag.CiudadDestino"/>
+                                <input hidden name="fecha" class="form-control" value="@Model.fecha" />
+                                <input hidden asp-for="cantPasajeros" class="form-control" />
+                                <div class="form-group">
+                                    <input type="submit" value="Reservar" class="btn btn-primary" />
+                                </div>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
 </div>
 
 <div>

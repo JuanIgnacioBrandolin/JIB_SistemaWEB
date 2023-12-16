@@ -1,0 +1,91 @@
+﻿@model IEnumerable<sistemaWEB.Models.ReservaVuelo>
+
+@{
+    ViewData["Title"] = "Mis reservas vuelo";
+}
+
+<h1>Create</h1>
+
+<h4>ReservaVuelo</h4>
+<hr />
+
+
+<div class="col-md-8">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>
+                    @Html.DisplayName("id")
+                </th>
+                <th>
+                    @Html.DisplayName("miVuelo.id")
+                </th>
+                <th>
+                    @Html.DisplayName("origen_nombre")
+                </th>
+                <th>
+                    @Html.DisplayName("destino_nombre")
+                </th>
+                <th>
+                    @Html.DisplayName("pagado")
+                </th>
+                <th>
+                    @Html.DisplayName("Fecha")
+                </th>
+                <th>
+                    @Html.DisplayName("aerolinea")
+                </th>
+                <th>
+                    @Html.DisplayName("avion")
+                </th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.idReservaVuelo)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.miVuelo.id)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.miVuelo.origen.nombre)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.miVuelo.destino.nombre)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.pagado)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.miVuelo.fecha)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.miVuelo.aerolinea)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.miVuelo.avion)
+                    </td>
+                    <td>
+                        <a asp-action="EditMiReservaVuelo" asp-route-id="@item.idReservaVuelo">Edit</a> |
+                        <a asp-action="Delete" asp-route-id="@item.idReservaVuelo">Delete</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+
+<div>
+    <a asp-action="Index">Back to List</a>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

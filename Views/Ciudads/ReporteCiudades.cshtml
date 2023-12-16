@@ -1,0 +1,31 @@
+﻿@model IEnumerable<sistemaWEB.Models.Ciudad>
+
+@{
+    ViewData["Title"] = "Reporte ciudades";
+}
+
+<h1>Reporte ciudades</h1>
+
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.id)
+                @Html.DisplayNameFor(model => model.nombre)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>
+                    @Html.DisplayFor(modelItem => item.id)
+                    @Html.DisplayFor(modelItem => item.nombre)
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

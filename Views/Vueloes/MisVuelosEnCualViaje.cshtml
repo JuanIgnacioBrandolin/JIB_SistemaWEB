@@ -1,0 +1,71 @@
+﻿@model IEnumerable<sistemaWEB.Models.Vuelo>
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<h1>Mis vuelos en cual viaje</h1>
+
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.origen)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.destino)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.capacidad)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.vendido)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.costo)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.fecha)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.aerolinea)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.avion)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>
+                    @Html.DisplayFor(modelItem => item.origen.nombre)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.destino.nombre)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.capacidad)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.vendido)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.costo)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.fecha)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.aerolinea)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.avion)
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

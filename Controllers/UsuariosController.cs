@@ -2,21 +2,28 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json.Linq;
 using sistemaWEB.Models;
+using static System.Collections.Specialized.BitVector32;
 
 namespace sistemaWEB.Controllers
 {
     public class UsuariosController : Controller
     {
         private readonly MiContexto _context;
+        public const string SessionKeyName = "_sessionNameUsuario";
+        public const string SessionKeyAge = "_SessionUsuarioAge";
 
         public UsuariosController(MiContexto context)
         {
             _context = context;
+            _context.usuarios.Load();
         }
 
         [HttpGet]
@@ -282,6 +289,11 @@ namespace sistemaWEB.Controllers
             {
                 codigoReturn = "OK";
                 //this.usuarioActual = usuarioSeleccionados;
+                if (string.IsNullOrEmpty(HttpContext.Session.GetString(SessionKeyName)))
+                {
+                    Helper.SessionExtensions.Set(HttpContext.Session, "usuarioActual", usuarioSeleccionados);
+                    var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+                }
             }
             else
             {

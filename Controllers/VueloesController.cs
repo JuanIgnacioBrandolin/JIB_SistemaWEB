@@ -17,6 +17,8 @@ namespace sistemaWEB.Controllers
         public VueloesController(MiContexto context)
         {
             _context = context;
+            _context.vuelos.Include(v => v.listPasajeros).Include(v => v.listMisReservas).Include(v => v.vueloUsuarios).Include(c => c.origen).Load();
+            _context.vueloUsuarios.Load();
         }
 
         // GET: Vueloes
@@ -24,6 +26,17 @@ namespace sistemaWEB.Controllers
         {
             var miContexto = _context.vuelos.Include(v => v.destino).Include(v => v.origen);
             return View(await miContexto.ToListAsync());
+        }
+
+        public IActionResult MisVuelosEnCualViaje()
+        {
+            var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+            usuarioActual.listMisReservasVuelo = new List<ReservaVuelo>();
+            var listMisVuelo = from v in _context.vuelos
+                                     join vu in _context.vueloUsuarios on v.id equals vu.idVuelo
+                                     where vu.idUsuario == usuarioActual.id
+                                     select new { v }.v;
+            return View(listMisVuelo.ToList());
         }
 
         // GET: Vueloes/Details/5
@@ -72,15 +85,15 @@ namespace sistemaWEB.Controllers
                 double costo;
                 if (!double.TryParse(Convert.ToString(vuelo.costo), out costo))
                 {
-                  //  MessageBox.Show("El costo debe ser un número válido");
+                    //  MessageBox.Show("El costo debe ser un número válido");
 
                 }
 
                 DateTime fecha;
                 if (!DateTime.TryParse(Convert.ToString(vuelo.fecha), out fecha))
                 {
-                   // MessageBox.Show("Debe elegir una fecha");
-           
+                    // MessageBox.Show("Debe elegir una fecha");
+
                 }
 
                 _context.Add(vuelo);
@@ -130,13 +143,13 @@ namespace sistemaWEB.Controllers
                     switch (resultado)
                     {
                         case "exito":
-                          //  MessageBox.Show("Vuelo modificado exitosamente");
+                            //  MessageBox.Show("Vuelo modificado exitosamente");
                             break;
                         case "capacidad":
-                          //  MessageBox.Show("La capacidad es menor a la cantidad de personas que reservaron el vuelo");
+                            //  MessageBox.Show("La capacidad es menor a la cantidad de personas que reservaron el vuelo");
                             break;
                         case "error":
-                         //   MessageBox.Show("Ocurrió un problema al querer modificar el vuelo");
+                            //   MessageBox.Show("Ocurrió un problema al querer modificar el vuelo");
                             break;
                     }
                 }
@@ -196,14 +209,14 @@ namespace sistemaWEB.Controllers
                 }
                 _context.vuelos.Remove(vueloAEliminar);
             }
-           
+
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
 
         private bool VueloExists(int id)
         {
-          return (_context.vuelos?.Any(e => e.id == id)).GetValueOrDefault();
+            return (_context.vuelos?.Any(e => e.id == id)).GetValueOrDefault();
         }
 
 
