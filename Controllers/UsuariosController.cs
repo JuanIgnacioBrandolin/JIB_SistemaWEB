@@ -32,7 +32,7 @@ namespace sistemaWEB.Controllers
             var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
             Usuario usuario = _context.usuarios.FirstOrDefault(x => x.id == usuarioActual.id);
 
-            if(id == 2)
+            if (id == 2)
             {
                 ViewBag.ErrorCredito = mensaje;
             }
@@ -193,7 +193,7 @@ namespace sistemaWEB.Controllers
             if (ModelState.IsValid)
             {
                 var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
-                if (this.modificarUsuariocontexto(usuarioActual.id, usuarioActual.name, usuarioActual.apellido, usuarioActual.dni, usuarioActual.mail, usuario.password, usuarioActual.esAdmin, usuarioActual.bloqueado))
+                if (await this.modificarUsuariocontexto(usuarioActual.id, usuarioActual.name, usuarioActual.apellido, usuarioActual.dni, usuarioActual.mail, usuario.password, usuarioActual.esAdmin, usuarioActual.bloqueado))
                 {
                     mensaje = "Modificado con éxito";
                 }
@@ -215,7 +215,7 @@ namespace sistemaWEB.Controllers
             if (ModelState.IsValid)
             {
                 var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
-                if (this.modificarUsuariocontexto(usuarioActual.id, usuario.name, usuario.apellido, usuario.dni, usuario.mail, usuario.password, usuarioActual.esAdmin, usuarioActual.bloqueado))
+                if (await this.modificarUsuariocontexto(usuarioActual.id, usuario.name, usuario.apellido, usuario.dni, usuario.mail, usuario.password, usuarioActual.esAdmin, usuarioActual.bloqueado))
                 {
                     mensaje = "Modificado con éxito";
                 }
@@ -255,7 +255,6 @@ namespace sistemaWEB.Controllers
         {
             if (id != usuario.id)
             {
-                //  MessageBox.Show("Debe seleccionar un usuario y no puede haber datos incompletos");
                 return NotFound();
             }
 
@@ -266,22 +265,9 @@ namespace sistemaWEB.Controllers
                     if (!string.IsNullOrEmpty(usuario.name) && !string.IsNullOrEmpty(usuario.apellido) &&
                     !string.IsNullOrEmpty(usuario.dni) && !string.IsNullOrEmpty(usuario.mail))
                     {
+                        await this.modificarUsuariocontexto(id, usuario.name, usuario.apellido, usuario.dni, usuario.mail, usuario.password, usuario.esAdmin, usuario.bloqueado);
+                    }
 
-                        //Dni, Nombre, apellido, Mail,pass, EsADM, Bloqueado);
-                        // int Id, string Nombre, string Apellido, string Dni, string Mail
-                        if (this.modificarUsuariocontexto(id, usuario.name, usuario.apellido, usuario.dni, usuario.mail, usuario.password, usuario.esAdmin, usuario.bloqueado))
-                        {
-                            // MessageBox.Show("Modificado con éxito");
-                        }
-                        else
-                        {
-                            // MessageBox.Show("Problemas al modificar");
-                        }
-                    }
-                    else
-                    {
-                        // MessageBox.Show("no pueden haber datos incompletos");
-                    }
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -493,7 +479,7 @@ namespace sistemaWEB.Controllers
                 throw;
             }
         }
-        public bool modificarUsuariocontexto(int Id, string Nombre, string Apellido, string Dni, string Mail, string pass, bool admin, bool bloqueado)
+        public async Task<bool> modificarUsuariocontexto(int Id, string Nombre, string Apellido, string Dni, string Mail, string pass, bool admin, bool bloqueado)
         {
             //busco usuario y lo asocio a la variable
             Usuario u = _context.usuarios.Where(u => u.id == Id).FirstOrDefault();
@@ -509,7 +495,7 @@ namespace sistemaWEB.Controllers
                     u.esAdmin = admin;
                     u.bloqueado = bloqueado;
                     _context.usuarios.Update(u);
-                    _context.SaveChangesAsync();
+                    await _context.SaveChangesAsync();
                     return true;
                 }
                 catch (Exception)

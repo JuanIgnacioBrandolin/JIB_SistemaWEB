@@ -107,7 +107,7 @@ namespace sistemaWEB.Controllers
                 try
                 {
 
-                    Ciudad ciudadaux =  _context.ciudades.FirstOrDefault(x => x.id == ciudad.id);
+                    Ciudad ciudadaux = _context.ciudades.FirstOrDefault(x => x.id == ciudad.id);
                     ciudadaux.nombre = ciudad.nombre;
                     _context.Update(ciudadaux);
                     await _context.SaveChangesAsync();
@@ -143,6 +143,12 @@ namespace sistemaWEB.Controllers
                 return NotFound();
             }
 
+            var errorEliminarCiudad = Helper.SessionExtensions.Get<string>(HttpContext.Session, "errorEliminarCiudad");
+            if(errorEliminarCiudad != null)
+            {
+                ViewBag.errorEliminarCiudad = errorEliminarCiudad;
+                Helper.SessionExtensions.delete<string>(HttpContext.Session, "errorEliminarCiudad");
+            }
             return View(ciudad);
         }
 
@@ -158,7 +164,11 @@ namespace sistemaWEB.Controllers
             var ciudad = await _context.ciudades.FindAsync(id);
             if (ciudad != null)
             {
-                this.eliminarCiudad(Convert.ToInt32(id));    
+                if (await this.eliminarCiudad(Convert.ToInt32(id)) == false)
+                {
+                    Helper.SessionExtensions.Set(HttpContext.Session, "errorEliminarCiudad", "Problemas al eliminar. La ciudad tiene asociado un vuelo y/o un hotel");
+                    return RedirectToAction(nameof(Delete));
+                }
             }
             return RedirectToAction(nameof(Index));
         }
@@ -171,7 +181,7 @@ namespace sistemaWEB.Controllers
 
         #region funcion ciudades
 
-        public bool eliminarCiudad(int id)
+        public async Task<bool> eliminarCiudad(int id)
         {
             try
             {
@@ -185,7 +195,7 @@ namespace sistemaWEB.Controllers
                     if (ciudadAEliminar != null)
                     {
                         _context.ciudades.Remove(ciudadAEliminar);
-                        _context.SaveChangesAsync();
+                        await _context.SaveChangesAsync();
                         return true;
 
                     }

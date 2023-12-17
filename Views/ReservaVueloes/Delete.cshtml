@@ -2,6 +2,12 @@
 
 @{
     ViewData["Title"] = "Delete";
+    var erroMensajeDeleteReservaVuelos = "";
+    if (@ViewBag.erroMensajeDeleteReservaVuelos != null)
+    {
+        erroMensajeDeleteReservaVuelos = @ViewBag.erroMensajeDeleteReservaVuelos;
+    }
+
 }
 
 <h1>Delete</h1>
@@ -36,4 +42,9 @@
         <input type="submit" value="Delete" class="btn btn-danger" /> |
         <a asp-action="Index">Back to List</a>
     </form>
+</div>
+
+<div class="form-group">
+    <label class="control-label">@erroMensajeDeleteReservaVuelos</label>
+    <span asp-validation-for="@erroMensajeDeleteReservaVuelos" class="text-danger"></span>
 </div>

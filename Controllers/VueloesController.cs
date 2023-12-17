@@ -88,7 +88,7 @@ namespace sistemaWEB.Controllers
         // GET: Vueloes/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null || _context.vuelos == null)
+            if (id == null || _context.vuelos.Include(x => x.origen).Include(x => x.destino) == null)
             {
                 return NotFound();
             }
@@ -119,6 +119,8 @@ namespace sistemaWEB.Controllers
             {
                 try
                 {
+                    vuelo.origen = _context.ciudades.FirstOrDefault(x => x.id == vuelo.CiudadOrigenId);
+                    vuelo.destino = _context.ciudades.FirstOrDefault(x => x.id == vuelo.CiudadDestinoId);
                     string resultado = (this.modificarVuelo(id, vuelo.origen, vuelo.destino, vuelo.capacidad, vuelo.costo, vuelo.fecha, vuelo.aerolinea, vuelo.avion));
                     switch (resultado)
                     {

@@ -206,9 +206,19 @@ namespace sistemaWEB.Controllers
         // GET: ReservaVueloes/Edit/5
         public async Task<IActionResult> EditMiReservaVuelo(int? id)
         {
+            _context.vuelos.Load();
+            _context.usuarios.Load();
+            _context.ciudades.Load();
+
             if (id == null || _context.reservaVuelos == null)
             {
                 return NotFound();
+            }
+
+            var resp = Helper.SessionExtensions.Get<string>(HttpContext.Session, "errorMensajeEditReservaVuelo");
+            if (resp != null)
+            {
+                ViewBag.errorMensajeEditReservaVuelo = resp;
             }
 
             var reservaVuelo = await _context.reservaVuelos.FindAsync(id);
@@ -218,12 +228,13 @@ namespace sistemaWEB.Controllers
             }
             ViewData["idUsuario"] = new SelectList(_context.usuarios, "id", "dni", reservaVuelo.idUsuario);
             ViewData["idVuelo"] = new SelectList(_context.vuelos, "id", "aerolinea", reservaVuelo.idVuelo);
+            Helper.SessionExtensions.delete<string>(HttpContext.Session, "errorMensajeEditReservaVuelo");
             return View(reservaVuelo);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditMiReservaVuelo(int id, [Bind("idReservaVuelo")] ReservaVuelo reservaVuelo, int cantidad, int idVuelo)
+        public IActionResult EditMiReservaVuelo(int id, [Bind("idReservaVuelo")] ReservaVuelo reservaVuelo, int cantidad, int idVuelo)
         {
             if (id != reservaVuelo.idReservaVuelo)
             {
@@ -236,6 +247,7 @@ namespace sistemaWEB.Controllers
                 {
                     double nuevoCosto = this.CalcularNuevoCosto(idVuelo, cantidad);
                     string resultado = (this.modificarReservaVuelo(idVuelo, reservaVuelo.idReservaVuelo, cantidad, nuevoCosto));
+                    Helper.SessionExtensions.Set(HttpContext.Session, "errorMensajeEditReservaVuelo", resultado);
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -309,6 +321,12 @@ namespace sistemaWEB.Controllers
                 return NotFound();
             }
 
+            var erroMensajeDeleteReservaVuelos = Helper.SessionExtensions.Get<string>(HttpContext.Session, "erroMensajeDeleteReservaVuelos");
+            if (erroMensajeDeleteReservaVuelos != null)
+            {
+                ViewBag.erroMensajeDeleteReservaVuelos = erroMensajeDeleteReservaVuelos;
+            }
+            Helper.SessionExtensions.delete<string>(HttpContext.Session, "erroMensajeDeleteReservaVuelos");
             return View(reservaVuelo);
         }
 
@@ -322,13 +340,19 @@ namespace sistemaWEB.Controllers
                 return Problem("Entity set 'MiContexto.reservaVuelos'  is null.");
             }
             var reservaVuelo = await _context.reservaVuelos.FindAsync(id);
+            var resp = string.Empty;
             if (reservaVuelo != null)
             {
-                _context.reservaVuelos.Remove(reservaVuelo);
-            }
+                resp = this.eliminarReservaVuelo(id);
 
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
+
+                if (resp == "Fecha" || resp == "error")
+                {
+                    Helper.SessionExtensions.Set(HttpContext.Session, "erroMensajeDeleteReservaVuelos", resp);
+                    return RedirectToAction(nameof(Delete));
+                }
+            }
+            return RedirectToAction(nameof(MisReservasVuelo));
         }
 
         private bool ReservaVueloExists(int id)
@@ -473,14 +497,15 @@ namespace sistemaWEB.Controllers
             DateTime fechaActual = DateTime.Now;
             try
             {
+                var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
                 ReservaVuelo rv = _context.reservaVuelos.Where(rv => rv.idReservaVuelo == idReserva).FirstOrDefault();
                 Vuelo v = rv.miVuelo;
-                Usuario u = rv.miUsuario;
-                var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+                Usuario u = _context.usuarios.FirstOrDefault(x => x.id == usuarioActual.id);
+
                 VueloUsuario vueloUsuarioSelected = _context.vueloUsuarios.Where(vus => vus.idUsuario == usuarioActual.id && vus.idVuelo == idVuelo).FirstOrDefault();
                 if (rv != null)
                 {
-                    if (v.fecha >= fechaActual)
+                    if (v.fecha.Date >= fechaActual.Date)
                     {
 
                         int cantReservas = vueloUsuarioSelected.cantidad;
@@ -568,9 +593,52 @@ namespace sistemaWEB.Controllers
 
 
 
+        public string eliminarReservaVuelo(int reservaVueloId)
+        {
+            try
+            {
+                var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+                ReservaVuelo reservaVuelo = _context.reservaVuelos.Include(u => u.miUsuario).Where(rv => rv.idReservaVuelo == reservaVueloId).First();
+                Vuelo v = _context.vuelos.FirstOrDefault(x => x.id == reservaVuelo.idVuelo);
+
+                VueloUsuario vueloUsuarioSelected = _context.vueloUsuarios.Include(x => x.user).Where(vus => vus.idUsuario == usuarioActual.id && vus.idVuelo == reservaVuelo.idVuelo).FirstOrDefault();
+
+                if (reservaVuelo != null)
+                {
+                    DateTime fechaActual = DateTime.Now;
+
+                    if (v.fecha.Date >= fechaActual.Date)
+                    {
+                        double costoTotalReserva = reservaVuelo.pagado;
+                        reservaVuelo.miUsuario.credito += costoTotalReserva;
+                        //calculo la cant de reservas para luego eliminarlo de la lista de reservas del vuelo y del usuario
+                        int cantReservas = (int)(reservaVuelo.pagado / v.costo);
+                        v.vendido -= cantReservas;
+                        v.listMisReservas.Remove(reservaVuelo);
+                        reservaVuelo.miUsuario.listMisReservasVuelo.Remove(reservaVuelo);
+                        //elimino la relacion vuelo usuario
+                        if (vueloUsuarioSelected != null)
+                            _context.vueloUsuarios.Remove(vueloUsuarioSelected);
+                        //
+                        _context.reservaVuelos.Remove(reservaVuelo);
+                        _context.SaveChanges();
+                        return "ReservaEliminada";
+                    }
+                    else
+                    {
+                        return "Fecha";
+                    }
+                }
+                return "ok";
+            }
+            catch (Exception e)
+            {
+                return "error";
+            }
+
+        }
+
         #endregion
-
-
 
     }
 }
