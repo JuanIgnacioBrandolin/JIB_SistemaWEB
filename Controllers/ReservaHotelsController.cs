@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,7 +17,19 @@ namespace sistemaWEB.Controllers
 
         public ReservaHotelsController(MiContexto context)
         {
+
             _context = context;
+            _context.reservaHoteles.Load();
+            _context.usuarios.Load();
+            _context.hoteles.Load();
+        }
+
+        // GET: ReservaHotels
+        public async Task<IActionResult> MisReservasHotel()
+        {
+            var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+            IEnumerable misReservasHotel = _context.reservaHoteles.Where(x => x.idUsuario == usuarioActual.id);
+            return View(misReservasHotel);
         }
 
         // GET: ReservaHotels
@@ -53,12 +66,31 @@ namespace sistemaWEB.Controllers
             ViewData["idUsuario"] = new SelectList(_context.usuarios, "id", "dni");
             ViewData["Ciudad"] = new SelectList(_context.ciudades, "id", "nombre");
 
-            ReservaHotel.DispReservaHotel = this.traerDisponibilidad(ReservaHotel);
+            if (ReservaHotel.cantidadPersonas == 0)
+            {
+                ViewBag.Error += "Se debe ingresar cantidad de personas. \n";
+            }
+            if (ReservaHotel.monto == 0)
+            {
+                ViewBag.Error += "Se debe ingresar el monto. ";
+            }
 
-            ViewBag.DispReservaHotel = this.traerDisponibilidad(ReservaHotel);
+            var msnError = Helper.SessionExtensions.Get<string>(HttpContext.Session, "msnError");
+            if (!string.IsNullOrEmpty(msnError))
+            {
+                ViewBag.Error += msnError;
+            }
 
-            return View(new BusinessReservaHotel() { fechaDesde = DateTime.Now, fechaHasta = DateTime.Now, DispReservaHotel = ReservaHotel.DispReservaHotel });
+            if (ReservaHotel.cantidadPersonas != 0 && ReservaHotel.monto != 0)
+            {
+                ReservaHotel.DispReservaHotel = this.traerDisponibilidad(ReservaHotel);
+            }
+            else
+            {
+                ReservaHotel.DispReservaHotel = new List<BusinessDispReservaHotel>();
+            }
 
+            return View(new BusinessReservaHotel() { fechaDesde = DateTime.Now.Date, fechaHasta = DateTime.Now.Date, DispReservaHotel = ReservaHotel.DispReservaHotel });
         }
 
 
@@ -69,6 +101,7 @@ namespace sistemaWEB.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("idReservaHotel,idHotel,cantidadPersonas,idUsuario,fechaDesde,fechaHasta,pagado")] ReservaHotel reservaHotel)
         {
+
             if (ModelState.IsValid)
             {
                 _context.Add(reservaHotel);
@@ -92,14 +125,27 @@ namespace sistemaWEB.Controllers
         public async Task<IActionResult> Reservar([Bind("id,ubicacion,disponibilidad,costo,nombre,FechaDesde,FechaHasta")] BusinessDispReservaHotel BusinessDispReservaHotel, [Bind("Ciudad,cantidadPersonas,fechaDesde,fechaHasta,monto")] BusinessReservaHotel businessReservaHotel)
         {
 
-            if (await this.GenerarReserva(BusinessDispReservaHotel.nombre, businessReservaHotel.fechaDesde, businessReservaHotel.fechaHasta, Convert.ToString(businessReservaHotel.monto), Convert.ToString(businessReservaHotel.cantidadPersonas)) != null)
+            if (BusinessDispReservaHotel.costo != businessReservaHotel.monto)
             {
-                //dataGridViewHotel.Rows.Add(new string[] { Agencia.getHotelesByHotel(boxHoteles.Text).nombre, textBoxMonto.Text, Convert.ToString(Agencia.getHotelesByHotel(boxHoteles.Text).capacidad), fechaIngreso.ToShortDateString(), fechaEgreso.ToShortDateString() });
-                //disponibilidad = true;
+                Helper.SessionExtensions.Set(HttpContext.Session, "msnError", "El monto debe ser igual al costo. ");
             }
 
+            if (BusinessDispReservaHotel.costo == businessReservaHotel.monto)
+            {
+                var reserva = await this.GenerarReservaAsync(BusinessDispReservaHotel.nombre, businessReservaHotel.fechaDesde, businessReservaHotel.fechaHasta, Convert.ToString(businessReservaHotel.monto), Convert.ToString(businessReservaHotel.cantidadPersonas));
+                businessReservaHotel.DispReservaHotel = this.traerDisponibilidad(new BusinessReservaHotel()
+                {
+                    cantidadPersonas = reserva.cantidadPersonas,
+                    Ciudad = reserva.miHotel.idCiudad,
+                    fechaDesde = reserva.fechaDesde,
+                    fechaHasta = reserva.fechaHasta,
+                    idReservaHotel = reserva.idReservaHotel,
+                });
 
-            return RedirectToAction(nameof(Create), "ReservaHotels", new RouteValueDictionary());
+                Helper.SessionExtensions.Set(HttpContext.Session, "msnError", "Se genero la reserva");
+            }
+
+            return RedirectToAction(nameof(Create), new RouteValueDictionary(businessReservaHotel));
         }
 
 
@@ -159,6 +205,75 @@ namespace sistemaWEB.Controllers
             return View(reservaHotel);
         }
 
+
+
+        // GET: ReservaHotels/Edit/5
+        public async Task<IActionResult> MisReservasHotelEdit(int? id)
+        {
+            if (id == null || _context.reservaHoteles == null)
+            {
+                return NotFound();
+            }
+
+            var reservaHotel = await _context.reservaHoteles.FindAsync(id);
+            if (reservaHotel == null)
+            {
+                return NotFound();
+            }
+            ViewData["idHotel"] = new SelectList(_context.hoteles, "id", "nombre", reservaHotel.idHotel);
+            ViewData["idUsuario"] = new SelectList(_context.usuarios, "id", "dni", reservaHotel.idUsuario);
+            return View(reservaHotel);
+        }
+
+        // POST: ReservaHotels/Edit/5
+        // To protect from overposting attacks, enable the specific properties you want to bind to.
+        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult MisReservasHotelEdit(int id, [Bind("idReservaHotel,idHotel,cantidadPersonas,idUsuario,fechaDesde,fechaHasta,pagado")] ReservaHotel reservaHotel)
+        {
+            if (id != reservaHotel.idReservaHotel)
+            {
+                return NotFound();
+            }
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    Int32 idReservaHotel = reservaHotel.idReservaHotel;
+                    DateTime fechaDesde = reservaHotel.fechaDesde;
+                    DateTime fechaHasta = reservaHotel.fechaHasta;
+                    if (this.TraerDisponibilidadHotelParaEdicion(Convert.ToInt32(reservaHotel.idHotel), fechaDesde, fechaHasta, Convert.ToInt32(reservaHotel.cantidadPersonas), idReservaHotel))
+                    {
+                        this.editarReservaHotel(fechaDesde, fechaHasta, this.CalcularCostoParaEdicion(fechaDesde, fechaHasta, Convert.ToInt32(reservaHotel.idHotel)), idReservaHotel, Convert.ToInt32(reservaHotel.idHotel), Convert.ToInt32(reservaHotel.cantidadPersonas));
+                    }
+                    else
+                    {
+                        //MessageBox.Show("No hay disponibilidad");
+                    }
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    if (!ReservaHotelExists(reservaHotel.idReservaHotel))
+                    {
+                        return NotFound();
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+                return RedirectToAction(nameof(MisReservasHotel));
+            }
+            ViewData["idHotel"] = new SelectList(_context.hoteles, "id", "nombre", reservaHotel.idHotel);
+            ViewData["idUsuario"] = new SelectList(_context.usuarios, "id", "dni", reservaHotel.idUsuario);
+            return View(reservaHotel);
+        }
+
+
+
         // GET: ReservaHotels/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
@@ -197,6 +312,52 @@ namespace sistemaWEB.Controllers
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
+
+
+
+
+
+
+
+        // GET: ReservaHotels/Delete/5
+        public async Task<IActionResult> MisReservasHotelDelete(int? id)
+        {
+            if (id == null || _context.reservaHoteles == null)
+            {
+                return NotFound();
+            }
+
+            var reservaHotel = await _context.reservaHoteles
+                .Include(r => r.miHotel)
+                .Include(r => r.miUsuario)
+                .FirstOrDefaultAsync(m => m.idReservaHotel == id);
+            if (reservaHotel == null)
+            {
+                return NotFound();
+            }
+
+            return View(reservaHotel);
+        }
+
+        // POST: ReservaHotels/Delete/5
+        [HttpPost, ActionName("MisReservasHotelDelete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MisReservasHotelDelete(int id, double costo)
+        {
+            if (_context.reservaHoteles == null)
+            {
+                return Problem("Entity set 'MiContexto.reservaHoteles'  is null.");
+            }
+            var reservaHotel = await _context.reservaHoteles.FindAsync(id);
+            if (reservaHotel != null)
+            {
+                this.eliminarRerservaHotel(id, costo);
+            }
+
+            return RedirectToAction(nameof(MisReservasHotel));
+        }
+
+
 
         private bool ReservaHotelExists(int id)
         {
@@ -330,7 +491,7 @@ namespace sistemaWEB.Controllers
         {
             return _context.hoteles?.FirstOrDefault(x => x.nombre == boxHoteles);
         }
-        public async Task<ReservaHotel>? GenerarReserva(string nombreHotel, DateTime fechaIngreso, DateTime fechaEgreso, string textBoxMonto, string cantidadPersonas)
+        public async Task<ReservaHotel> GenerarReservaAsync(string nombreHotel, DateTime fechaIngreso, DateTime fechaEgreso, string textBoxMonto, string cantidadPersonas)
         {
             var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
             //Busco el hotel por nombre
@@ -346,20 +507,23 @@ namespace sistemaWEB.Controllers
                 {
                     //crea un objeto reserva hotel
                     reservaHotel = new ReservaHotel(hotelSeleccionado, usuarioActual, fechaIngreso, fechaEgreso, Convert.ToDouble(textBoxMonto), Convert.ToInt32(cantidadPersonas));
+
+
                     //Genera la reserva en la base a traves del context
                     await this.generarReservaContextAsync(reservaHotel);
                     //odbtiene el objeto de la tabla intermedia correspondiente al id usuario y al hotel
-                    HotelUsuario hotelUsuario = _context.HotelUsuario.Where(x => x.idUsuario == reservaHotel.miUsuario.id && x.idHotel == reservaHotel.miHotel.id).FirstOrDefault();
+                    HotelUsuario hotelUsuario = _context.HotelUsuario.Where(x => x.idUsuario == usuarioActual.id && x.idHotel == hotelSeleccionado.id).FirstOrDefault();
+
+                    reservaHotel = new ReservaHotel(hotelSeleccionado, usuarioActual, fechaIngreso, fechaEgreso, Convert.ToDouble(textBoxMonto), Convert.ToInt32(cantidadPersonas));
                     //Modifica la tabla intermedia o genera un registro nuevo dependiendo si existe esa relacion de hotel, usuario
-                    this.generarHotelUsuario(hotelUsuario, reservaHotel);
+                    await this.generarHotelUsuario(hotelUsuario, reservaHotel);
                     //se obtiene el usuario actual, se le resta el credito para que quede registrado en memoria
                     usuarioActual.credito = usuarioActual.credito - Convert.ToDouble(textBoxMonto);
                     //se modifica el dato en la base a traves del context
-                    modificarCreditoContext(usuarioActual);
+                    await modificarCreditoContextAsync(usuarioActual);
                     // this.modificarUsuarioActual(usuarioActual); revisar
 
                     Helper.SessionExtensions.Set(HttpContext.Session, "usuarioActual", usuarioActual);
-
                 }
                 catch (Exception ex)
                 {
@@ -378,7 +542,11 @@ namespace sistemaWEB.Controllers
         {
             try
             {
-                _context.reservaHoteles.Add(reservaHotel);
+                reservaHotel.idHotel = reservaHotel.miHotel.id;
+                reservaHotel.idUsuario = reservaHotel.miUsuario.id;
+                reservaHotel.miHotel = null;
+                reservaHotel.miUsuario = null;
+                _context.Add(reservaHotel);
                 await _context.SaveChangesAsync();
                 return true;
             }
@@ -388,7 +556,7 @@ namespace sistemaWEB.Controllers
             }
         }
 
-        public bool generarHotelUsuario(HotelUsuario? hotelUsuario, ReservaHotel reservaHotel)
+        public async Task<bool> generarHotelUsuario(HotelUsuario? hotelUsuario, ReservaHotel reservaHotel)
         {
             try
             {
@@ -399,10 +567,12 @@ namespace sistemaWEB.Controllers
                 }
                 else
                 {
+                    hotelUsuario.idHotel = hotelUsuario.hotel.id;
+                    hotelUsuario.hotel = null;
                     hotelUsuario.cantidad++;
                     _context.HotelUsuario.Update(hotelUsuario);
                 }
-                _context.SaveChangesAsync();
+                await _context.SaveChangesAsync();
                 return true;
             }
             catch (Exception ex)
@@ -410,12 +580,31 @@ namespace sistemaWEB.Controllers
                 return false;
             }
         }
+        public async Task<bool> modificarCreditoContextAsinc(Usuario usuarioActual)
+        {
+            try
+            {
+                Usuario? usuario = _context.usuarios.Where(u => u.id == usuarioActual.id).FirstOrDefault();
+                if (usuario != null)
+                {
+                    usuario.credito = usuarioActual.credito;
+                    await _context.SaveChangesAsync();
+                    return true;
+                }
+                else
+                    return false;
+            }
+            catch (Exception e)
+            {
+                return false;
+            }
+        }
+
         public bool modificarCreditoContext(Usuario usuarioActual)
         {
             try
             {
                 Usuario? usuario = _context.usuarios.Where(u => u.id == usuarioActual.id).FirstOrDefault();
-
                 if (usuario != null)
                 {
                     usuario.credito = usuarioActual.credito;
@@ -432,6 +621,166 @@ namespace sistemaWEB.Controllers
             }
         }
 
+
+        public async Task<bool> modificarCreditoContextAsync(Usuario usuarioActual)
+        {
+            try
+            {
+                Usuario? usuario = _context.usuarios.Where(u => u.id == usuarioActual.id).FirstOrDefault();
+                if (usuario != null)
+                {
+                    usuario.credito = usuarioActual.credito;
+                    //_context.usuarios.Update(usuario);
+                    await _context.SaveChangesAsync();
+                    return true;
+                }
+                else
+                    return false;
+            }
+            catch (Exception e)
+            {
+                return false;
+            }
+        }
+
+        public bool TraerDisponibilidadHotelParaEdicion(Int32 idhotel, DateTime fechaIngreso, DateTime fechaEgreso, Int32 cantPersonas, Int32 idReservaHotel)
+        {
+            Hotel miHotel = _context.reservaHoteles.Select(x => x.miHotel).FirstOrDefault(); //this.getHoteles().FirstOrDefault(x => x.id == Convert.ToInt32(idhotel));
+            bool estaRango = false;
+            bool entrorango = false;
+            int difcantPer = miHotel.capacidad;
+            bool hayDisponibilidad = false;
+            int total = 0;
+            // recorre sobre el hotel, las reservas de ese hotel
+            foreach (var itemReserva in miHotel.listMisReservas)
+            {   // verifica si la fecha seleccionada esta en el rango de las fechas reservadas
+                estaRango = this.verificacionRango(itemReserva, miHotel, fechaIngreso, fechaEgreso);
+                //si esta en rango, resta la capacidad del hotel sobre la cantidad de personas que reservaron esa fecha
+                if (estaRango)
+                {
+                    // si es la reserva que estoy editando
+                    if (itemReserva.idReservaHotel == idReservaHotel)
+                    {
+                        //le pasa la nueva cantidad de personas y se la resta a la capacidad
+                        itemReserva.cantidadPersonas = cantPersonas;
+                        difcantPer = difcantPer - itemReserva.cantidadPersonas;
+                    }
+                    else
+                    {
+                        difcantPer = difcantPer - itemReserva.cantidadPersonas;
+                    }
+                    entrorango = true;
+                }
+            }
+            //si entro dentro de rango, significa que esta validando sobre un rango de fecha de reserva, estoy quiere 
+            //decir que la resta de la cantidad de personas elejidas para la edicion ya esta contemplada por lo tanto solo se le pasa el monto, si la nueva edicion
+            //no esta dentro de un rango la resta se realiza
+            if (entrorango)
+                total = difcantPer;
+            else
+                total = difcantPer - cantPersonas;
+
+            //si la cantidad de personas contabilizadas por cada reserva y las nuevas ingresadas, "total" es menor siginifica que hay capacidad ya que total es menos a capacidad del hotel
+            if (miHotel.capacidad >= total && total >= 0)
+                hayDisponibilidad = true;
+
+            return hayDisponibilidad;
+        }
+
+
+        public void editarReservaHotel(DateTime fechaDesde, DateTime fechaHasta, double pagado, Int32 idReservaHotel, Int32 idHotel, Int32 cantPers)
+        {
+            var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+            List<ReservaHotel> misReservas = _context.reservaHoteles.Where(x => x.idUsuario == usuarioActual.id).ToList();
+
+            //Trae el hotel buscandolo en el contexto por id hotel
+            Hotel miHotel = _context.reservaHoteles.Select(x => x.miHotel).FirstOrDefault(); //this.getHoteles().FirstOrDefault(x => x.id == Convert.ToInt32(idhotel));//this.getHoteles().FirstOrDefault(x => x.id == idHotel);
+            //si la fecha es mayor a la editada, suma el costo a lo que tenia, si es menor se lo resta 
+            //this.devolverDineroOsumarDinero(fechaDesde, fechaHasta, miHotel.listMisReservas this.getUsuarioActual().listMisReservasHoteles, idReservaHotel, miHotel);
+            this.devolverDineroOsumarDinero(fechaDesde, fechaHasta, misReservas, idReservaHotel, miHotel);
+            //Modifica la reserva en la base
+            this.modificarReservaHotelContext(fechaDesde, fechaHasta, pagado, idReservaHotel, cantPers);
+        }
+
+        public  void devolverDineroOsumarDinero(DateTime fechaDesde, DateTime fechaHasta, List<ReservaHotel> misReservas, Int32 idReservaHotel, Hotel miHotel)
+        {
+            var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+            double costo = 0;
+            //Se obtiene la diferencia de dias de la seleccion de fechas del menu
+            TimeSpan tsseleccion = fechaHasta.Date.Subtract(fechaDesde.Date);
+
+            //Consulta la reserva que se esta editando
+            ReservaHotel miReserva = misReservas.FirstOrDefault(x => x.idReservaHotel == idReservaHotel);
+
+            //Se obtiene la diferencia de dias de la reserva
+            TimeSpan tsBase = misReservas.FirstOrDefault(x => x.idReservaHotel == idReservaHotel).fechaHasta.Date.Subtract(miReserva.fechaDesde.Date);
+            //Se resta la diferencia  de fechas de la seleccion de menu con la seleccion de fechas de la reserva para
+            //obtener la cantidad de dias que suma a la reserva o que resta a la reserva
+            Int32 sumarCostoPorDia = (tsseleccion.Days + 1) - (tsBase.Days + 1);
+            //Se multiplica la diferencia de dias por lo que sale el hotel por dia, si fuera que en ves de agregar dias
+            //Saco dias de reserva, se resta por el costo al multiplicar un numero negativo por un valor, al dar numero negativo
+            // y ser credito + - total del resultado de la multiplicacion, estaria restandole al credito que tiene el usuario
+            //si da positivo la  suma de  (sumarCostoPorDia * miHotel.costo) va a sumar si da negativo va a restar porque + * - es menos
+            costo = usuarioActual.credito + (sumarCostoPorDia * miHotel.costo);
+            usuarioActual.credito = costo;
+            Helper.SessionExtensions.Set(HttpContext.Session, "usuarioActual", usuarioActual);
+            this.modificarCreditoContext(usuarioActual);
+        }
+
+
+        public bool modificarReservaHotelContext(DateTime fechaDesde, DateTime fechaHasta, double pagado, Int32 idReservaHotel, Int32 cantPers)
+        {
+            try
+            {
+                ReservaHotel? reservaHotel = _context.reservaHoteles.FirstOrDefault(x => x.idReservaHotel == idReservaHotel);
+                reservaHotel.fechaDesde = fechaDesde;
+                reservaHotel.fechaHasta = fechaHasta;
+                reservaHotel.pagado = pagado;
+                reservaHotel.cantidadPersonas = cantPers;
+                //_context.reservaHoteles.Update(reservaHotel);
+                _context.SaveChanges();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+        }
+
+
+        public void eliminarRerservaHotel(Int32 idReservaHotel, double costo)
+        {
+            ReservaHotel reservaHotel = _context.reservaHoteles.FirstOrDefault(x => x.idReservaHotel == idReservaHotel);
+
+            //elimina el hotel de la base
+            this.elimiarReservaHotelContext(idReservaHotel);
+            //Tdrae el usuario actual y le suma a su credito el valor de la reserva eliminada
+            Usuario usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+            usuarioActual.credito = usuarioActual.credito + costo;
+            //Modifica el credito del usuario en la base
+            Helper.SessionExtensions.Set(HttpContext.Session, "usuarioActual", usuarioActual);
+            this.modificarCreditoContext(usuarioActual);
+        }
+
+        public bool elimiarReservaHotelContext(Int32 idReservaHotel)
+        {
+            try
+            {
+                ReservaHotel reservaHotel = _context.reservaHoteles.Where(x => x.idReservaHotel == idReservaHotel).FirstOrDefault();
+                if (reservaHotel != null)
+                {
+                    _context.reservaHoteles.Remove(reservaHotel);
+                    _context.SaveChanges();
+                    return true;
+                }
+                else
+                    return false;
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+        }
         #endregion
 
 

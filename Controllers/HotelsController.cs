@@ -17,16 +17,15 @@ namespace sistemaWEB.Controllers
         public HotelsController(MiContexto context)
         {
             _context = context;
-            _context.hoteles.Include(x => x.ubicacion).Load();
         }
 
-        // GET: Hotels
+        // GET: Hotels correcto
         public async Task<IActionResult> Index()
         {
-            var miContexto = _context.hoteles.Include(h => h.ubicacion);
+           var miContexto = _context.hoteles.Include(h => h.ubicacion);
             return View(await miContexto.ToListAsync());
         }
-
+        //correctp
         public IActionResult MisHotelesQueVisite()
         {
             var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
@@ -34,7 +33,7 @@ namespace sistemaWEB.Controllers
             return View(misHoteles);
         }
 
-        // GET: Hotels/Details/5
+        // GET: Hotels/Details/5 correcto
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null || _context.hoteles == null)
@@ -53,7 +52,7 @@ namespace sistemaWEB.Controllers
             return View(hotel);
         }
 
-        // GET: Hotels/Create
+        // GET: Hotels/Create correcto
         public IActionResult Create()
         {
             ViewData["idCiudad"] = new SelectList(_context.ciudades, "id", "nombre");
@@ -61,7 +60,7 @@ namespace sistemaWEB.Controllers
         }
 
         // POST: Hotels/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
+        // To protect from overposting attacks, enable the specific properties you want to bind to. correcto
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -77,7 +76,7 @@ namespace sistemaWEB.Controllers
             return View(hotel);
         }
 
-        // GET: Hotels/Edit/5
+        // GET: Hotels/Edit/5 correcto
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null || _context.hoteles == null)
@@ -94,7 +93,7 @@ namespace sistemaWEB.Controllers
             return View(hotel);
         }
 
-        // POST: Hotels/Edit/5
+        // POST: Hotels/Edit/5 correcto
         // To protect from overposting attacks, enable the specific properties you want to bind to.
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
@@ -107,16 +106,16 @@ namespace sistemaWEB.Controllers
             }
 
             Hotel hotelAModificar = _context.hoteles.FirstOrDefault(hotel => hotel.id == id);
-            if (hotel.capacidad > hotelAModificar.capacidad)
-            {
-                // return "fallo";
-            }
-
             if (ModelState.IsValid)
             {
                 try
                 {
-                    _context.Update(hotel);
+                    hotelAModificar.capacidad = hotel.capacidad;
+                    hotelAModificar.idCiudad = hotel.idCiudad;
+                    hotelAModificar.id = hotel.id;
+                    hotelAModificar.costo = hotel.costo;
+                    hotelAModificar.nombre = hotel.nombre;
+                    _context.Update(hotelAModificar);
                     await _context.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException)
@@ -168,14 +167,6 @@ namespace sistemaWEB.Controllers
             if (hotel != null)
             {
                 this.eliminarHotel(id);
-                //if (agencia.eliminarHotel(id))
-                // {
-                //     MessageBox.Show("Hotel eliminado exitosamente");
-                // }
-                // else
-                // {
-                //     MessageBox.Show("Hubo un problema al eliminar el Hotel");
-                // }
             }
 
             return RedirectToAction(nameof(Index));
@@ -198,7 +189,6 @@ namespace sistemaWEB.Controllers
                 DateTime fechaActual = DateTime.Now;
                 if (hotelAEliminar != null)
                 {
-                    double monto = 0;
                     foreach (var reservaHotel in hotelAEliminar.listMisReservas.Where(u => u.fechaDesde > fechaActual))
                     {
                         reservaHotel.miUsuario.credito += reservaHotel.pagado;
@@ -212,7 +202,7 @@ namespace sistemaWEB.Controllers
                 }
                 return false; //no se encontró el id del hotel
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 return false; //excepcion al eliminar el hotel
             }

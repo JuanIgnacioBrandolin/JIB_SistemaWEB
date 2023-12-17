@@ -1,0 +1,80 @@
+﻿@model IEnumerable<sistemaWEB.Models.ReservaHotel>
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<h1>Mis reservas Hotel</h1>
+
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.miHotel.id)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.miHotel.ubicacion.nombre)
+            </th>
+            <th>
+                @Html.Display("MontoPagado")
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.miHotel.nombre)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.miHotel.capacidad)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.fechaDesde)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.fechaHasta)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.miHotel.costo)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>
+                    @Html.DisplayFor(modelItem => item.miHotel.id)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.miHotel.ubicacion.nombre)
+                </td>
+                <td>
+
+                    @{
+                        var montoPagado = 50;
+                    }
+
+                    @Html.DisplayFor(modelItem => @montoPagado)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.miHotel.nombre)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.miHotel.capacidad)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.fechaDesde)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.fechaHasta)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.miHotel.costo)
+                </td>
+                <td>
+                    <a asp-action="MisReservasHotelEdit" asp-route-id="@item.idReservaHotel">Edit</a> |
+                    <a asp-action="MisReservasHotelDelete" asp-route-id="@item.idReservaHotel">Delete</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

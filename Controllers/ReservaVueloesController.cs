@@ -18,19 +18,22 @@ namespace sistemaWEB.Controllers
         public ReservaVueloesController(MiContexto context)
         {
             _context = context;
-            _context.reservaHoteles.Load();
-            _context.vuelos.Include(v => v.listPasajeros).Include(v => v.listMisReservas).Include(v => v.vueloUsuarios).Include(o => o.origen).Load();
+            _context.reservaVuelos.Load();
+            //_context.vuelos.Load();
+            //_context.usuarios.Load();
+            //_context.ciudades.Load();
         }
 
         // GET: ReservaVueloes
-        public async Task<IActionResult> MisReservasVuelo()
+        public IActionResult MisReservasVuelo()
         {
             var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
             usuarioActual.listMisReservasVuelo = new List<ReservaVuelo>();
             var listMiReservaVuelo = from rv in _context.reservaVuelos
-                              join u in _context.usuarios on rv.idUsuario equals u.id
-                              where rv.idUsuario == usuarioActual.id
-                              select new { rv }.rv;
+                                     join u in _context.usuarios on rv.idUsuario equals u.id
+                                     where rv.idUsuario == usuarioActual.id
+                                     select new { rv }.rv;
+
             listMiReservaVuelo.ToList();
             usuarioActual.listMisReservasVuelo = listMiReservaVuelo.ToList();
             return View(usuarioActual.listMisReservasVuelo);
@@ -75,14 +78,40 @@ namespace sistemaWEB.Controllers
 
 
         // GET: ReservaVueloes/Create
-        public IActionResult Create(BusinessReservaVuelo reservaVuelo)
+        public async Task<IActionResult> Create(BusinessReservaVuelo reservaVuelo)
         {
 
+            if (reservaVuelo.idVuelo != 0 && reservaVuelo.cantPasajeros != 0)
+            {
+                var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+                string resultado = await this.comprarVuelo(reservaVuelo.idVuelo, usuarioActual, reservaVuelo.cantPasajeros);
+                switch (resultado)
+                {
+                    case "yaCompro":
+                        ViewBag.Error += "Ya compraste este vuelo. ";
+                        break;
+                    case "exito":
+                        Vuelo vueloSeleccionado = _context.vuelos.FirstOrDefault(v => v.id == reservaVuelo.idVuelo);
+                        int asientosDisponibles = vueloSeleccionado.capacidad;
+                        //  dataGridView1.Rows[rowIndex].Cells["Cantidad"].Value = asientosDisponibles -= cantidad;
+                        ViewBag.Error += "Reserva realiza con éxito";
+                        break;
+
+                    case "sinSaldo":
+                        ViewBag.Error += "No tienes suficiente crédito para realizar la compra";
+                        break;
+                    case "error":
+                        ViewBag.Error += "Hubo un error inesperado, volvé a intentarlo";
+                        break;
+                }
+
+            }
 
             Ciudad ciudadOrigen = _context.ciudades.FirstOrDefault(ciudad => ciudad.id == reservaVuelo.CiudadOrigen);
             Ciudad ciudadDestino = _context.ciudades.FirstOrDefault(ciudad => ciudad.id == reservaVuelo.CiudadDestino);
 
-            if (ciudadOrigen != null && ciudadDestino != null && reservaVuelo.fecha != null && reservaVuelo.cantPasajeros != null)
+
+            if (ciudadOrigen != null && ciudadDestino != null && reservaVuelo.fecha != null && reservaVuelo.cantPasajeros != 0)
             {
                 List<Vuelo> vuelosEncontrados = this.buscarVuelos(ciudadOrigen, ciudadDestino, reservaVuelo.fecha, reservaVuelo.cantPasajeros);
 
@@ -107,9 +136,19 @@ namespace sistemaWEB.Controllers
                         reservaVuelo.vuelos.Add(vuelos);
                     }
                 }
+                else
+                {
+                    reservaVuelo.vuelos = new List<BusinessVuelos>();
+                    ViewBag.Error += "No se encontraron vuelos. ";
+                }
             }
             else
             {
+                if (reservaVuelo.cantPasajeros == 0)
+                {
+                    ViewBag.Error += "Debe ingresar la cantidad de pasajeros para realizar la consulta";
+                }
+
                 reservaVuelo.vuelos = new List<BusinessVuelos>();
             }
             ViewData["CiudadDestino"] = new SelectList(_context.ciudades, "id", "nombre");
@@ -122,35 +161,8 @@ namespace sistemaWEB.Controllers
         public async Task<IActionResult> Reservar([Bind("cantPasajeros,CiudadOrigen,CiudadDestino,fecha")] BusinessReservaVuelo BusinessReservaVuelo, [Bind("id,vueloOrigenNombre,vueloDestinoNombre,capacidad,costoTotal,fechaFormateada,aerolinea,avion")] BusinessVuelos BusinessVuelos)
         {
 
-            var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
-            int vueloId = BusinessVuelos.id;
-            int cantidad = BusinessReservaVuelo.cantPasajeros;
-
-            string resultado = this.comprarVuelo(vueloId, usuarioActual, cantidad);
-
-            switch (resultado)
-            {
-                case "yaCompro":
-                    // MessageBox.Show("Ya compraste este vuelo");
-                    break;
-                case "exito":
-                    Vuelo vueloSeleccionado = _context.vuelos.FirstOrDefault(v => v.id == vueloId);
-
-                    // int rowIndex = e.RowIndex;
-                    int asientosDisponibles = vueloSeleccionado.capacidad;
-                    //  dataGridView1.Rows[rowIndex].Cells["Cantidad"].Value = asientosDisponibles -= cantidad;
-                    // MessageBox.Show("Reserva realiza con éxito");
-                    break;
-
-                case "sinSaldo":
-                    //  MessageBox.Show("No tienes suficiente crédito para realizar la compra");
-                    break;
-                case "error":
-                    // MessageBox.Show("Hubo un error inesperado, volvé a intentarlo");
-                    break;
-            }
-
-            return RedirectToAction(nameof(Create), "ReservaHotels", new RouteValueDictionary());
+            BusinessReservaVuelo.idVuelo = BusinessVuelos.id;
+            return RedirectToAction(nameof(Create), new RouteValueDictionary(BusinessReservaVuelo));
         }
 
         // POST: ReservaVueloes/Create
@@ -209,7 +221,7 @@ namespace sistemaWEB.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditMiReservaVuelo(int id, [Bind("idReservaVuelo")] ReservaVuelo reservaVuelo,int cantidad, int idVuelo)
+        public async Task<IActionResult> EditMiReservaVuelo(int id, [Bind("idReservaVuelo")] ReservaVuelo reservaVuelo, int cantidad, int idVuelo)
         {
             if (id != reservaVuelo.idReservaVuelo)
             {
@@ -334,7 +346,7 @@ namespace sistemaWEB.Controllers
         }
 
 
-        public string comprarVuelo(int vueloId, Usuario usuarioActual, int cantidad)
+        public async Task<string> comprarVuelo(int vueloId, Usuario usuarioActual, int cantidad)
         {
             Vuelo vuelo = _context.vuelos.Where(v => v.id == vueloId).FirstOrDefault();
 
@@ -348,18 +360,34 @@ namespace sistemaWEB.Controllers
                 double costoTotal = vuelo.costo * cantidad;
                 if (usuarioActual.credito >= costoTotal)
                 {
-                    usuarioActual.credito -= costoTotal;
-                    vuelo.vendido += cantidad;
-                    vuelo.listPasajeros.Add(usuarioActual);
+                    try
+                    {
+                        usuarioActual.credito -= costoTotal;
+                        vuelo.vendido += cantidad;
+                        vuelo.listPasajeros.Add(usuarioActual);
 
-                    ReservaVuelo reserva = new ReservaVuelo(vuelo, usuarioActual, costoTotal);
-                    _context.reservaVuelos.Add(reserva);
+                        ReservaVuelo reserva = new ReservaVuelo();
+                        reserva.idVuelo = vuelo.id;
+                        reserva.idUsuario = usuarioActual.id;
+                        reserva.pagado = costoTotal;
+                        _context.reservaVuelos.Add(reserva);
+                        await _context.SaveChangesAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        return "error";
+                    }
 
-                    vincularVueloUsuarios(vueloId, usuarioActual.id, cantidad);
+                    try
+                    {
+                        await vincularVueloUsuarios(vueloId, usuarioActual.id, cantidad);
+                    }
+                    catch (Exception ex)
+                    {
+                        return "error";
+                    }
 
-                    _context.SaveChanges();
                     return "exito";
-
                 }
                 return "sinSaldo";
 
@@ -369,7 +397,7 @@ namespace sistemaWEB.Controllers
         }
 
 
-        public bool vincularVueloUsuarios(int vueloId, int usuarioId, int cant)
+        public async Task<bool> vincularVueloUsuarios(int vueloId, int usuarioId, int cant)
         {
             try
             {
@@ -380,12 +408,13 @@ namespace sistemaWEB.Controllers
                 {
                     us.listVuelosTomados.Add(vu);
                     _context.usuarios.Update(us);
-                    _context.SaveChanges();
+                    await _context.SaveChangesAsync();
 
-
+                    vueloUsuarioSelected.user = null;
+                    vueloUsuarioSelected.vuelo = null;
                     vueloUsuarioSelected.cantidad = cant;
                     _context.vueloUsuarios.Update(vueloUsuarioSelected);
-                    _context.SaveChanges();
+                    await _context.SaveChangesAsync();
 
                 }
                 else
@@ -396,15 +425,16 @@ namespace sistemaWEB.Controllers
                         vueloUsuarioSelected.idUsuario = usuarioId;
                         vueloUsuarioSelected.cantidad = cant;
                     }
+                    vueloUsuarioSelected.user = null;
+                    vueloUsuarioSelected.vuelo = null;
                     _context.vueloUsuarios.Add(vueloUsuarioSelected);
-                    _context.SaveChanges();
-
+                    await _context.SaveChangesAsync();
                 }
                 return true;
             }
             catch (Exception ex)
             {
-                return false;
+                throw;
             }
 
 

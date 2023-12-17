@@ -19,7 +19,7 @@ namespace sistemaWEB.Controllers
             _context.ciudades.Include(x => x.listHoteles).Include(c => c.listVuelosDestino).Include(d => d.listVuelosOrigen).Load();
         }
 
-        // GET: Ciudads
+        // GET: Ciudads correto
         public async Task<IActionResult> Index()
         {
             return _context.ciudades != null ?
@@ -34,7 +34,7 @@ namespace sistemaWEB.Controllers
                         Problem("Entity set 'MiContexto.ciudades'  is null.");
         }
 
-        // GET: Ciudads/Details/5
+        // GET: Ciudads/Details/5 correcto
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null || _context.ciudades == null)
@@ -58,7 +58,7 @@ namespace sistemaWEB.Controllers
             return View();
         }
 
-        // POST: Ciudads/Create
+        // POST: Ciudads/Create correcto
         // To protect from overposting attacks, enable the specific properties you want to bind to.
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
@@ -90,7 +90,7 @@ namespace sistemaWEB.Controllers
             return View(ciudad);
         }
 
-        // POST: Ciudads/Edit/5
+        // POST: Ciudads/Edit/5 correcto
         // To protect from overposting attacks, enable the specific properties you want to bind to.
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
@@ -128,7 +128,7 @@ namespace sistemaWEB.Controllers
             return View(ciudad);
         }
 
-        // GET: Ciudads/Delete/5
+        // GET: Ciudads/Delete/5 correcto
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null || _context.ciudades == null)
@@ -146,7 +146,7 @@ namespace sistemaWEB.Controllers
             return View(ciudad);
         }
 
-        // POST: Ciudads/Delete/5
+        // POST: Ciudads/Delete/5 revisar
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
@@ -158,14 +158,8 @@ namespace sistemaWEB.Controllers
             var ciudad = await _context.ciudades.FindAsync(id);
             if (ciudad != null)
             {
-                if (this.eliminarCiudad(Convert.ToInt32(id)))
-                {
-                    // MessageBox.Show("Eliminado con éxito");
-                }
+                this.eliminarCiudad(Convert.ToInt32(id));    
             }
-            //  else
-            //MessageBox.Show("Problemas al eliminar. La ciudad tiene asociado un vuelo y/o un hotel");
-
             return RedirectToAction(nameof(Index));
         }
 
@@ -175,7 +169,7 @@ namespace sistemaWEB.Controllers
         }
 
 
-        #region ciudad
+        #region funcion ciudades
 
         public bool eliminarCiudad(int id)
         {

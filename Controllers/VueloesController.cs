@@ -76,26 +76,6 @@ namespace sistemaWEB.Controllers
         {
             if (ModelState.IsValid)
             {
-                int capacidad;
-                if (!int.TryParse(Convert.ToString(vuelo.capacidad), out capacidad))
-                {
-                    //MessageBox.Show("La capacidad debe ser un número válido");
-                }
-
-                double costo;
-                if (!double.TryParse(Convert.ToString(vuelo.costo), out costo))
-                {
-                    //  MessageBox.Show("El costo debe ser un número válido");
-
-                }
-
-                DateTime fecha;
-                if (!DateTime.TryParse(Convert.ToString(vuelo.fecha), out fecha))
-                {
-                    // MessageBox.Show("Debe elegir una fecha");
-
-                }
-
                 _context.Add(vuelo);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));

@@ -2,6 +2,17 @@
 
 @{
     ViewData["Title"] = "Create";
+
+    var textError = "";
+    var flag = true;
+    if (@ViewBag.Error != null)
+    {
+        textError = @ViewBag.Error;
+    }
+    if (Model.vuelos.Count >= 1)
+    {
+        flag = false;
+    }
 }
 
 <h1>Create</h1>
@@ -29,16 +40,17 @@
 
             <div class="form-group">
                 <label asp-for="fecha" class="control-label"></label>
-                <input asp-for="fecha" class="form-control" />
+                <input asp-for="fecha" type="date" class="form-control" data-val-required="Dato obligatorio" />
                 <span asp-validation-for="fecha" class="text-danger"></span>
             </div>
 
             <div class="form-group">
-                <label asp-for="cantPasajeros" class="control-label"></label>
-                <input asp-for="cantPasajeros" class="form-control" />
+                <label  class="control-label">Cantidad de pasajeros</label>
+                <input asp-for="cantPasajeros" class="form-control" data-val-required="Dato obligatorio" />
                 <span asp-validation-for="cantPasajeros" class="text-danger"></span>
             </div>
 
+            <br />
             <div class="form-group">
                 <input type="submit" value="Buscar" class="btn btn-primary" />
             </div>
@@ -108,7 +120,12 @@
                         <td>
                             <form asp-action="Reservar">
                                 <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-                                <input hidden name="id" class="form-control" value="@item.id" />
+                                <div class="form-group" hidden="@flag">
+                                    <label asp-for="cantPasajeros" class="control-label"></label>
+                                    <input asp-for="cantPasajeros" class="form-control" data-val-required="Dato obligatorio" />
+                                    <span asp-validation-for="cantPasajeros" class="text-danger"></span>
+                                </div>
+                                <input hidden name="id" class="form-control" value="@item.id" />k
                                 <input hidden name="vueloOrigenNombre" class="form-control" value="@item.vueloOrigenNombre" />
                                 <input hidden name="vueloDestinoNombre" class="form-control" value="@item.vueloDestinoNombre" />
                                 <input hidden name="capacidad" class="form-control" value="@item.capacidad" />
@@ -116,10 +133,9 @@
                                 <input hidden name="fechaFormateada" class="form-control" value="@item.fechaFormateada" />
                                 <input hidden name="aerolinea" class="form-control" value="@item.aerolinea" />
                                 <input hidden name="avion" class="form-control" value="@item.avion" />
-                                <input hidden asp-for="CiudadOrigen" class="form-control" asp-items="ViewBag.CiudadOrigen"/>
-                                <input hidden asp-for="CiudadDestino" class="form-control" asp-items="ViewBag.CiudadDestino"/>
+                                <input hidden asp-for="CiudadOrigen" class="form-control" asp-items="ViewBag.CiudadOrigen" />
+                                <input hidden asp-for="CiudadDestino" class="form-control" asp-items="ViewBag.CiudadDestino" />
                                 <input hidden name="fecha" class="form-control" value="@Model.fecha" />
-                                <input hidden asp-for="cantPasajeros" class="form-control" />
                                 <div class="form-group">
                                     <input type="submit" value="Reservar" class="btn btn-primary" />
                                 </div>
@@ -129,14 +145,17 @@
                 }
             </tbody>
         </table>
+        <div class="form-group">
+            <label class="control-label">@textError</label>
+            <span asp-validation-for="@textError" class="text-danger"></span>
+        </div>
     </div>
 
 </div>
 
-<div>
-    <a asp-action="Index">Back to List</a>
-</div>
 
 @section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
 }

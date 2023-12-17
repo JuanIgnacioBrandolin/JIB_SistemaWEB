@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json.Linq;
 using sistemaWEB.Models;
+using sistemaWEB.Models.Business.ReservaHotel;
 using static System.Collections.Specialized.BitVector32;
 
 namespace sistemaWEB.Controllers
@@ -23,8 +24,36 @@ namespace sistemaWEB.Controllers
         public UsuariosController(MiContexto context)
         {
             _context = context;
-            _context.usuarios.Load();
+            _context.usuarios.Include(x => x.listMisReservasVuelo).Load();
         }
+
+        public IActionResult UsuarioSimple(string mensaje, int id)
+        {
+            var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+            Usuario usuario = _context.usuarios.FirstOrDefault(x => x.id == usuarioActual.id);
+
+            if(id == 2)
+            {
+                ViewBag.ErrorCredito = mensaje;
+            }
+            if (id == 3)
+            {
+                ViewBag.ErrorPass = mensaje;
+            }
+            if (id == 1)
+            {
+                ViewBag.ErrorDatPersonales = mensaje;
+            }
+
+            if (!string.IsNullOrEmpty(mensaje))
+            {
+                ViewBag.ErrorCredito = mensaje;
+            }
+
+
+            return View(usuario);
+        }
+
 
         [HttpGet]
         public async Task<IActionResult> Menu()
@@ -143,6 +172,73 @@ namespace sistemaWEB.Controllers
             return View(usuario);
         }
 
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> agregarCredito([Bind("id,name,apellido,dni,mail,password,intentosFallidos,bloqueado,credito,esAdmin")] Usuario usuario)
+        {
+            string mensaje = string.Empty;
+            if (ModelState.IsValid)
+            {
+                var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+                if (this.AgregarCreditoContexto(usuarioActual.id, usuario.credito))
+                {
+                    mensaje = "Modificado con éxito";
+                }
+                else
+                {
+                    mensaje = "Problemas al modificar";
+                }
+            }
+            return RedirectToAction(nameof(UsuarioSimple), new { mensaje = mensaje, id = 2 });
+        }
+
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> modificarPassword([Bind("id,name,apellido,dni,mail,password,intentosFallidos,bloqueado,credito,esAdmin")] Usuario usuario)
+        {
+            string mensaje = string.Empty;
+            if (ModelState.IsValid)
+            {
+                var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+                if (this.modificarUsuariocontexto(usuarioActual.id, usuarioActual.name, usuarioActual.apellido, usuarioActual.dni, usuarioActual.mail, usuario.password, usuarioActual.esAdmin, usuarioActual.bloqueado))
+                {
+                    mensaje = "Modificado con éxito";
+                }
+
+                else
+                {
+                    mensaje = "Problemas al modificar";
+                }
+            }
+            return RedirectToAction(nameof(UsuarioSimple), new { mensaje = mensaje, id = 3 });
+        }
+
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ModifiarUsuarioSimple([Bind("id,name,apellido,dni,mail,password,intentosFallidos,bloqueado,credito,esAdmin")] Usuario usuario)
+        {
+            string mensaje = string.Empty;
+            if (ModelState.IsValid)
+            {
+                var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+                if (this.modificarUsuariocontexto(usuarioActual.id, usuario.name, usuario.apellido, usuario.dni, usuario.mail, usuario.password, usuarioActual.esAdmin, usuarioActual.bloqueado))
+                {
+                    mensaje = "Modificado con éxito";
+                }
+                else
+                {
+                    mensaje = "Modificado con éxito";
+                }
+
+            }
+            return RedirectToAction(nameof(UsuarioSimple), new { mensaje = mensaje, id = 1 });
+        }
+
+
+
         // GET: Usuarios/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
@@ -237,7 +333,7 @@ namespace sistemaWEB.Controllers
         {
             if (_context.usuarios == null)
             {
-               //MessageBox.Show("Debe seleccionar un usuario");
+                //MessageBox.Show("Debe seleccionar un usuario");
                 return Problem("Entity set 'MiContexto.usuarios'  is null.");
             }
             var usuario = await _context.usuarios.FindAsync(id);
@@ -465,6 +561,32 @@ namespace sistemaWEB.Controllers
                 return false;
             }
         }
+
+        public bool AgregarCreditoContexto(int id, double monto)
+        {
+            try
+            {
+                Usuario u = _context.usuarios.Where(u => u.id == id).FirstOrDefault();
+                if (u != null)
+
+                {
+                    u.credito += monto;
+                    _context.usuarios.Update(u);
+                    _context.SaveChanges();
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+        }
+
         #endregion
     }
 }

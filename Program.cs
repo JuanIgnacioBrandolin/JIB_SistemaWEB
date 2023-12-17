@@ -1,3 +1,4 @@
+using Microsoft.CodeAnalysis.Options;
 using Microsoft.EntityFrameworkCore;
 using sistemaWEB.Models;
 
@@ -13,6 +14,8 @@ namespace sistemaWEB
             {
                 option.UseSqlServer(builder.Configuration.GetConnectionString("Context"));
             });
+
+           // option.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
 
             builder.Services.AddDistributedMemoryCache();
 
