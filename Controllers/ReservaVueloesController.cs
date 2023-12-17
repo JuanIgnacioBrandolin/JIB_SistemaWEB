@@ -18,15 +18,17 @@ namespace sistemaWEB.Controllers
         public ReservaVueloesController(MiContexto context)
         {
             _context = context;
-            _context.reservaVuelos.Load();
-            //_context.vuelos.Load();
-            //_context.usuarios.Load();
-            //_context.ciudades.Load();
         }
 
         // GET: ReservaVueloes
         public IActionResult MisReservasVuelo()
         {
+
+            _context.reservaVuelos.Load();
+            _context.vuelos.Load();
+            _context.usuarios.Load();
+            _context.ciudades.Load();
+
             var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
             usuarioActual.listMisReservasVuelo = new List<ReservaVuelo>();
             var listMiReservaVuelo = from rv in _context.reservaVuelos
