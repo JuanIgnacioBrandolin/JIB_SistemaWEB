@@ -13,6 +13,7 @@
     {
         flag = false;
     }
+ 
 }
 
 <h1>Create</h1>
@@ -125,7 +126,7 @@
                                     <input asp-for="cantPasajeros" class="form-control" data-val-required="Dato obligatorio" />
                                     <span asp-validation-for="cantPasajeros" class="text-danger"></span>
                                 </div>
-                                <input hidden name="id" class="form-control" value="@item.id" />k
+                                <input hidden name="id" class="form-control" value="@item.id" />
                                 <input hidden name="vueloOrigenNombre" class="form-control" value="@item.vueloOrigenNombre" />
                                 <input hidden name="vueloDestinoNombre" class="form-control" value="@item.vueloDestinoNombre" />
                                 <input hidden name="capacidad" class="form-control" value="@item.capacidad" />
@@ -136,6 +137,7 @@
                                 <input hidden asp-for="CiudadOrigen" class="form-control" asp-items="ViewBag.CiudadOrigen" />
                                 <input hidden asp-for="CiudadDestino" class="form-control" asp-items="ViewBag.CiudadDestino" />
                                 <input hidden name="fecha" class="form-control" value="@Model.fecha" />
+                                <br />
                                 <div class="form-group">
                                     <input type="submit" value="Reservar" class="btn btn-primary" />
                                 </div>
@@ -151,6 +153,10 @@
         </div>
     </div>
 
+</div>
+
+<div>
+    <a asp-action="Index" asp-controller="Menu">Back to List</a>
 </div>
 
 

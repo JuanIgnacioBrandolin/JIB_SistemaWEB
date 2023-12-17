@@ -2,6 +2,11 @@
 
 @{
     ViewData["Title"] = "Index";
+    var msjErrorReservaVuelo = "";
+    if (@ViewBag.msjErrorReservaVuelo != null)
+    {
+        msjErrorReservaVuelo = @ViewBag.msjErrorReservaVuelo;
+    }
 }
 
 <h1>Mis reservas Hotel</h1>
@@ -78,3 +83,11 @@
         }
     </tbody>
 </table>
+<div class="form-group">
+    <label class="control-label">@msjErrorReservaVuelo</label>
+    <span asp-validation-for="@msjErrorReservaVuelo" class="text-danger"></span>
+</div>
+
+<div>
+    <a asp-action="Index" asp-controller="Menu">Back to List</a>
+</div>

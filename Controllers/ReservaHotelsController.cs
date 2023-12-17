@@ -28,7 +28,14 @@ namespace sistemaWEB.Controllers
         public async Task<IActionResult> MisReservasHotel()
         {
             var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+
+            var msjErrorReservaVuelo = Helper.SessionExtensions.Get<string>(HttpContext.Session, "msjErrorReservaVuelo");
+            if (!string.IsNullOrEmpty(msjErrorReservaVuelo))
+            {
+                ViewBag.msjErrorReservaVuelo = msjErrorReservaVuelo;
+            }
             IEnumerable misReservasHotel = _context.reservaHoteles.Where(x => x.idUsuario == usuarioActual.id);
+            Helper.SessionExtensions.delete<string>(HttpContext.Session, "msjErrorReservaVuelo");
             return View(misReservasHotel);
         }
 
@@ -65,6 +72,12 @@ namespace sistemaWEB.Controllers
             ViewData["idHotel"] = new SelectList(_context.hoteles, "id", "nombre");
             ViewData["idUsuario"] = new SelectList(_context.usuarios, "id", "dni");
             ViewData["Ciudad"] = new SelectList(_context.ciudades, "id", "nombre");
+
+
+            if (ReservaHotel.fechaDesde.Date > ReservaHotel.fechaHasta.Date)
+            {
+                ViewBag.Error += "La fecha desde tiene que ser menor o igual a la de fecha hasta. ";
+            }
 
             if (ReservaHotel.cantidadPersonas == 0)
             {
@@ -251,7 +264,7 @@ namespace sistemaWEB.Controllers
                     }
                     else
                     {
-                        //MessageBox.Show("No hay disponibilidad");
+                        Helper.SessionExtensions.Set(HttpContext.Session, "msjErrorReservaVuelo", "No hay disponibilidad, no se modifico la reserva");
                     }
                 }
                 catch (DbUpdateConcurrencyException)
@@ -645,14 +658,15 @@ namespace sistemaWEB.Controllers
 
         public bool TraerDisponibilidadHotelParaEdicion(Int32 idhotel, DateTime fechaIngreso, DateTime fechaEgreso, Int32 cantPersonas, Int32 idReservaHotel)
         {
-            Hotel miHotel = _context.reservaHoteles.Select(x => x.miHotel).FirstOrDefault(); //this.getHoteles().FirstOrDefault(x => x.id == Convert.ToInt32(idhotel));
+            List<ReservaHotel> misReservas = _context.reservaHoteles.Where(x => x.idHotel == idhotel).ToList(); //this.getHoteles().FirstOrDefault(x => x.id == Convert.ToInt32(idhotel));
+            Hotel miHotel = _context.hoteles.FirstOrDefault(x => x.id == idhotel);
             bool estaRango = false;
             bool entrorango = false;
             int difcantPer = miHotel.capacidad;
             bool hayDisponibilidad = false;
             int total = 0;
             // recorre sobre el hotel, las reservas de ese hotel
-            foreach (var itemReserva in miHotel.listMisReservas)
+            foreach (var itemReserva in misReservas)
             {   // verifica si la fecha seleccionada esta en el rango de las fechas reservadas
                 estaRango = this.verificacionRango(itemReserva, miHotel, fechaIngreso, fechaEgreso);
                 //si esta en rango, resta la capacidad del hotel sobre la cantidad de personas que reservaron esa fecha
@@ -702,7 +716,7 @@ namespace sistemaWEB.Controllers
             this.modificarReservaHotelContext(fechaDesde, fechaHasta, pagado, idReservaHotel, cantPers);
         }
 
-        public  void devolverDineroOsumarDinero(DateTime fechaDesde, DateTime fechaHasta, List<ReservaHotel> misReservas, Int32 idReservaHotel, Hotel miHotel)
+        public void devolverDineroOsumarDinero(DateTime fechaDesde, DateTime fechaHasta, List<ReservaHotel> misReservas, Int32 idReservaHotel, Hotel miHotel)
         {
             var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
             double costo = 0;

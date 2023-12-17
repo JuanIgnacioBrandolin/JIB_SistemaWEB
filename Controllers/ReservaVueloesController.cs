@@ -155,7 +155,7 @@ namespace sistemaWEB.Controllers
             }
             ViewData["CiudadDestino"] = new SelectList(_context.ciudades, "id", "nombre");
             ViewData["CiudadOrigen"] = new SelectList(_context.ciudades, "id", "nombre");
-            return View(new BusinessReservaVuelo() { vuelos = reservaVuelo.vuelos, fecha = reservaVuelo.fecha == null ? DateTime.Now : reservaVuelo.fecha });
+            return View(new BusinessReservaVuelo() { vuelos = reservaVuelo.vuelos, fecha = DateTime.Now.Date });
         }
 
         [HttpPost]

@@ -75,26 +75,17 @@ namespace sistemaWEB.Controllers
             switch (resp)
             {
                 case "OK":
-                    //this.volverIntentosFallidosCeroContext(usuario);
-                    //redirecciono Menu
-                    return RedirectToAction("Menu", "Usuarios");
+                    return RedirectToAction("Index", "Menu");
                 case "BLOQUEADO":
-                    //MessageBox.Show("Error, usuario bloqueado");
                     ViewBag.Error = "usuario bloqueado";
-                    //  textContrasenia.Enabled = false;
-                    //  textMail.Enabled = false;
-                    //  Aceptar.Enabled = false;
                     break;
                 case "MAILERROR":
                     ViewBag.Error = "usuario o contraseña incorrectos";
-                    //  MessageBox.Show("Error, usuario o contraseña incorrectos");
                     break;
                 case "INGRESARDATOS":
-                    //  MessageBox.Show("Debe ingresar un usuario y contraseña!");
                     ViewBag.Error = "Debe ingresar un usuario y contraseña!";
                     break;
                 case "FALTAUSUARIO":
-                    //MessageBox.Show("No existe el usuario");
                     ViewBag.Error = "No existe el usuario";
                     break;
                 default:
@@ -387,6 +378,7 @@ namespace sistemaWEB.Controllers
                 //this.usuarioActual = usuarioSeleccionados;
                 if (string.IsNullOrEmpty(HttpContext.Session.GetString(SessionKeyName)))
                 {
+                    usuarioSeleccionados.listMisReservasVuelo = null;
                     Helper.SessionExtensions.Set(HttpContext.Session, "usuarioActual", usuarioSeleccionados);
                     var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
                 }

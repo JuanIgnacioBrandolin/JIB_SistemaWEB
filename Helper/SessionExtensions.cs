@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using sistemaWEB.Models;
+using System.Text.Json;
 
 namespace sistemaWEB.Helper
 {
@@ -13,6 +14,11 @@ namespace sistemaWEB.Helper
         {
             var value = session.GetString(key);
             return value == null ? default : JsonSerializer.Deserialize<T>(value);
+        }
+
+        public static void delete<T>(this ISession session, string key)
+        {
+            session.Remove(key);
         }
     }
 }
