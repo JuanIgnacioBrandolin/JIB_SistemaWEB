@@ -28,7 +28,7 @@ namespace sistemaWEB.Controllers
         public async Task<IActionResult> MisReservasHotel()
         {
             var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
-
+            _context.ciudades.Load();
             var msjErrorReservaVuelo = Helper.SessionExtensions.Get<string>(HttpContext.Session, "msjErrorReservaVuelo");
             if (!string.IsNullOrEmpty(msjErrorReservaVuelo))
             {
@@ -73,10 +73,11 @@ namespace sistemaWEB.Controllers
             ViewData["idUsuario"] = new SelectList(_context.usuarios, "id", "dni");
             ViewData["Ciudad"] = new SelectList(_context.ciudades, "id", "nombre");
 
-
+            bool rangoFecha = false;
             if (ReservaHotel.fechaDesde.Date > ReservaHotel.fechaHasta.Date)
             {
                 ViewBag.Error += "La fecha desde tiene que ser menor o igual a la de fecha hasta. ";
+                rangoFecha = true;
             }
 
             if (ReservaHotel.cantidadPersonas == 0)
@@ -92,11 +93,16 @@ namespace sistemaWEB.Controllers
             if (!string.IsNullOrEmpty(msnError))
             {
                 ViewBag.Error += msnError;
+                Helper.SessionExtensions.delete<string>(HttpContext.Session, "msnError");
             }
 
-            if (ReservaHotel.cantidadPersonas != 0 && ReservaHotel.monto != 0)
+            if (ReservaHotel.cantidadPersonas != 0 && ReservaHotel.monto != 0 && !rangoFecha)
             {
                 ReservaHotel.DispReservaHotel = this.traerDisponibilidad(ReservaHotel);
+                if (ReservaHotel.DispReservaHotel.Count == 0)
+                {
+                    ViewBag.Error += "No hay disponibilidad o no existe hotel en esa ciudad. ";
+                }
             }
             else
             {
@@ -155,7 +161,7 @@ namespace sistemaWEB.Controllers
                     idReservaHotel = reserva.idReservaHotel,
                 });
 
-                Helper.SessionExtensions.Set(HttpContext.Session, "msnError", "Se genero la reserva");
+                Helper.SessionExtensions.Set(HttpContext.Session, "msnError", "Se genero la reserva - ");
             }
 
             return RedirectToAction(nameof(Create), new RouteValueDictionary(businessReservaHotel));
@@ -255,16 +261,23 @@ namespace sistemaWEB.Controllers
             {
                 try
                 {
-                    Int32 idReservaHotel = reservaHotel.idReservaHotel;
                     DateTime fechaDesde = reservaHotel.fechaDesde;
                     DateTime fechaHasta = reservaHotel.fechaHasta;
-                    if (this.TraerDisponibilidadHotelParaEdicion(Convert.ToInt32(reservaHotel.idHotel), fechaDesde, fechaHasta, Convert.ToInt32(reservaHotel.cantidadPersonas), idReservaHotel))
+                    if (fechaDesde.Date <= fechaHasta)
                     {
-                        this.editarReservaHotel(fechaDesde, fechaHasta, this.CalcularCostoParaEdicion(fechaDesde, fechaHasta, Convert.ToInt32(reservaHotel.idHotel)), idReservaHotel, Convert.ToInt32(reservaHotel.idHotel), Convert.ToInt32(reservaHotel.cantidadPersonas));
+                        Int32 idReservaHotel = reservaHotel.idReservaHotel;
+                        if (this.TraerDisponibilidadHotelParaEdicion(Convert.ToInt32(reservaHotel.idHotel), fechaDesde, fechaHasta, Convert.ToInt32(reservaHotel.cantidadPersonas), idReservaHotel))
+                        {
+                            this.editarReservaHotel(fechaDesde, fechaHasta, this.CalcularCostoParaEdicion(fechaDesde, fechaHasta, Convert.ToInt32(reservaHotel.idHotel)), idReservaHotel, Convert.ToInt32(reservaHotel.idHotel), Convert.ToInt32(reservaHotel.cantidadPersonas));
+                        }
+                        else
+                        {
+                            Helper.SessionExtensions.Set(HttpContext.Session, "msjErrorReservaVuelo", "No hay disponibilidad, no se modifico la reserva");
+                        }
                     }
                     else
                     {
-                        Helper.SessionExtensions.Set(HttpContext.Session, "msjErrorReservaVuelo", "No hay disponibilidad, no se modifico la reserva");
+                        Helper.SessionExtensions.Set(HttpContext.Session, "msjErrorReservaVuelo", "Fecha desde no puede ser mayor a fecha hasta");
                     }
                 }
                 catch (DbUpdateConcurrencyException)
@@ -658,10 +671,9 @@ namespace sistemaWEB.Controllers
 
         public bool TraerDisponibilidadHotelParaEdicion(Int32 idhotel, DateTime fechaIngreso, DateTime fechaEgreso, Int32 cantPersonas, Int32 idReservaHotel)
         {
-            List<ReservaHotel> misReservas = _context.reservaHoteles.Where(x => x.idHotel == idhotel).ToList(); //this.getHoteles().FirstOrDefault(x => x.id == Convert.ToInt32(idhotel));
+            List<ReservaHotel> misReservas = _context.reservaHoteles.Where(x => x.idHotel == idhotel).ToList();
             Hotel miHotel = _context.hoteles.FirstOrDefault(x => x.id == idhotel);
             bool estaRango = false;
-            bool entrorango = false;
             int difcantPer = miHotel.capacidad;
             bool hayDisponibilidad = false;
             int total = 0;
@@ -672,27 +684,15 @@ namespace sistemaWEB.Controllers
                 //si esta en rango, resta la capacidad del hotel sobre la cantidad de personas que reservaron esa fecha
                 if (estaRango)
                 {
-                    // si es la reserva que estoy editando
-                    if (itemReserva.idReservaHotel == idReservaHotel)
-                    {
-                        //le pasa la nueva cantidad de personas y se la resta a la capacidad
-                        itemReserva.cantidadPersonas = cantPersonas;
-                        difcantPer = difcantPer - itemReserva.cantidadPersonas;
-                    }
-                    else
+                    // contabiliza las reservas que estan en ese rango pero que no sea la del cliente que quiere editar
+                    if (itemReserva.idReservaHotel != idReservaHotel)
                     {
                         difcantPer = difcantPer - itemReserva.cantidadPersonas;
                     }
-                    entrorango = true;
                 }
             }
-            //si entro dentro de rango, significa que esta validando sobre un rango de fecha de reserva, estoy quiere 
-            //decir que la resta de la cantidad de personas elejidas para la edicion ya esta contemplada por lo tanto solo se le pasa el monto, si la nueva edicion
-            //no esta dentro de un rango la resta se realiza
-            if (entrorango)
-                total = difcantPer;
-            else
-                total = difcantPer - cantPersonas;
+
+            total = difcantPer - cantPersonas;
 
             //si la cantidad de personas contabilizadas por cada reserva y las nuevas ingresadas, "total" es menor siginifica que hay capacidad ya que total es menos a capacidad del hotel
             if (miHotel.capacidad >= total && total >= 0)

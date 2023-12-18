@@ -310,17 +310,12 @@ namespace sistemaWEB.Controllers
         {
             if (_context.usuarios == null)
             {
-                //MessageBox.Show("Debe seleccionar un usuario");
                 return Problem("Entity set 'MiContexto.usuarios'  is null.");
             }
             var usuario = await _context.usuarios.FindAsync(id);
             if (usuario != null)
             {
-                this.eliminarUsuarioContext(id);
-                //if (this.eliminarUsuarioContext(id))
-                //  MessageBox.Show("Eliminado con éxito");
-                //  else
-                //  MessageBox.Show("Problemas al eliminar");
+                await this.eliminarUsuarioContext(id);
             }
             return RedirectToAction(nameof(Index));
         }
@@ -509,7 +504,7 @@ namespace sistemaWEB.Controllers
                 return false;
             }
         }
-        public bool eliminarUsuarioContext(int Id)
+        public async Task<bool> eliminarUsuarioContext(int Id)
         {
             Usuario u = _context.usuarios.Where(u => u.id == Id).FirstOrDefault();
             if (u != null)
@@ -524,7 +519,7 @@ namespace sistemaWEB.Controllers
                         _context.vuelos.Update(rv.miVuelo);
                     }
                     _context.usuarios.Remove(u);
-                    _context.SaveChangesAsync();
+                    await _context.SaveChangesAsync();
                     return true;
                 }
                 catch (Exception e)

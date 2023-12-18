@@ -103,7 +103,7 @@ namespace sistemaWEB.Controllers
                         ViewBag.Error += "No tienes suficiente crédito para realizar la compra";
                         break;
                     case "error":
-                        ViewBag.Error += "Hubo un error inesperado, volvé a intentarlo";
+                        ViewBag.Error += "Hubo un error inesperado, volvé a intentarlo ";
                         break;
                 }
 

@@ -22,13 +22,14 @@ namespace sistemaWEB.Controllers
         // GET: Hotels correcto
         public async Task<IActionResult> Index()
         {
-           var miContexto = _context.hoteles.Include(h => h.ubicacion);
+            var miContexto = _context.hoteles.Include(h => h.ubicacion);
             return View(await miContexto.ToListAsync());
         }
         //correctp
         public IActionResult MisHotelesQueVisite()
         {
             var usuarioActual = Helper.SessionExtensions.Get<Usuario>(HttpContext.Session, "usuarioActual");
+            _context.ciudades.Load();
             IEnumerable misHoteles = this.misHotelesQueVisiteContext(usuarioActual.id);
             return View(misHoteles);
         }
@@ -166,7 +167,7 @@ namespace sistemaWEB.Controllers
             var hotel = await _context.hoteles.FindAsync(id);
             if (hotel != null)
             {
-                this.eliminarHotel(id);
+                await this.eliminarHotel(id);
             }
 
             return RedirectToAction(nameof(Index));
@@ -180,7 +181,7 @@ namespace sistemaWEB.Controllers
 
         #region hotels metodos privados
 
-        public bool eliminarHotel(int idHotel)
+        public async Task<bool> eliminarHotel(int idHotel)
         {
 
             try
@@ -197,7 +198,7 @@ namespace sistemaWEB.Controllers
                     }
 
                     _context.hoteles.Remove(hotelAEliminar);
-                    _context.SaveChangesAsync();
+                    await _context.SaveChangesAsync();
                     return true;
                 }
                 return false; //no se encontró el id del hotel
